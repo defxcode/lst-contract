@@ -9,30 +9,41 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title LSToken - Liquid Staking Token
- * @notice This token is minted when users deposit underlying tokens into the vault and burned on redemption
+ * @notice This is the yield-bearing token that represents a user's share of the staked assets in the
+ * LSTokenVault. It is a standard ERC20 token with additional features like EIP-2612 permits,
+ * role-based minting/burning, and upgradeability.
+ * @dev Inherits from OpenZeppelin's upgradeable contracts for ERC20, Permit, AccessControl, and UUPS.
  */
-contract LSToken is 
-    Initializable, 
-    ERC20PermitUpgradeable, 
-    AccessControlUpgradeable,
-    UUPSUpgradeable 
+contract LSToken is
+Initializable,
+ERC20PermitUpgradeable,
+AccessControlUpgradeable,
+UUPSUpgradeable
 {
+    // --- Roles ---
+    /// @notice The MINTER_ROLE is the only role that can create (mint) or destroy (burn) tokens.
+    /// @dev This role is granted to the LSTokenVault and UnstakeManager contracts.
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    /// @notice The ADMIN_ROLE has administrative control over this contract, such as granting roles and managing upgrades.
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    
-    // Contract version for tracking upgrades
+
+    // --- State Variables ---
+
+    /// @notice The current version of this contract, used for off-chain tracking of upgrades.
     string public version;
-    
-    // Upgrade timelock
+
+    /// @notice A struct to manage the state of the upgrade timelock mechanism.
     struct UpgradeControl {
-        uint256 requestTime;
-        bool requested;
+        uint256 requestTime; // Timestamp of the upgrade request.
+        bool requested;      // Flag indicating if an upgrade is pending.
     }
-    
+
+    /// @notice The state variable for the upgrade control struct.
     UpgradeControl public upgradeControl;
+    /// @notice The mandatory 2-day waiting period for a contract upgrade to be authorized.
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
-    
-    // Events
+
+    // --- Events ---
     event VersionUpdated(string newVersion);
     event UpgradeRequested(uint256 requestTime);
     event UpgradeAuthorized(address indexed implementation, string currentVersion);
@@ -44,33 +55,41 @@ contract LSToken is
     }
 
     /**
-     * @notice Initializer function
-     * @param name Token name
-     * @param symbol Token symbol
+     * @notice Initializes the LSToken contract, setting its name, symbol, and initial admin.
+     * @dev This function is called only once by the VaultFactory when the token proxy is deployed.
+     * It also initializes all the inherited OpenZeppelin contracts.
+     * @param name The full name of the token (e.g., "Liquid Staked XYZ").
+     * @param symbol The symbol of the token (e.g., "lsXYZ").
      */
     function initialize(string memory name, string memory symbol) external initializer {
         __ERC20_init(name, symbol);
-        __ERC20Permit_init(name);
+        __ERC20Permit_init(name); // Enables gasless approvals via signatures.
         __AccessControl_init();
         __UUPSUpgradeable_init();
-        
+
+        // The deployer (VaultFactory) initially gets admin rights to set up roles.
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
-        
+
         version = "1.0.0";
     }
 
     /**
-     * @notice Returns the number of decimals
+     * @notice Returns the number of decimals used to display token amounts.
+     * @dev Overrides the standard ERC20 decimals function to hardcode it to 18, which is the
+     * standard for most tokens in the Ethereum ecosystem.
+     * @return A fixed value of 18.
      */
     function decimals() public pure override returns (uint8) {
         return 18;
     }
 
     /**
-     * @notice Mint LS tokens to an address
-     * @param to Address to receive LS tokens
-     * @param amount Amount of LS tokens to mint
+     * @notice Creates a specified `amount` of new tokens and assigns them to the `to` address.
+     * @dev This function is protected and can only be called by an address with the `MINTER_ROLE`.
+     * This is typically the LSTokenVault, which mints tokens upon user deposits.
+     * @param to The address that will receive the newly minted tokens.
+     * @param amount The quantity of tokens to mint.
      */
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         require(to != address(0), "LSToken: cannot mint to zero address");
@@ -78,31 +97,37 @@ contract LSToken is
     }
 
     /**
-     * @notice Burn LS tokens from an address
-     * @param from Address from which LS tokens will be burned
-     * @param amount Amount of LS tokens to burn
+     * @notice Destroys a specified `amount` of tokens from the `from` address.
+     * @dev This function is protected and can only be called by an address with the `MINTER_ROLE`.
+     * This is typically the UnstakeManager, which burns tokens when a user requests to unstake.
+     * It requires the `from` address to have approved the caller to spend its tokens.
+     * @param from The address whose tokens will be burned.
+     * @param amount The quantity of tokens to burn.
      */
     function burnFrom(address from, uint256 amount) external onlyRole(MINTER_ROLE) {
         require(from != address(0), "LSToken: cannot burn from zero address");
+        // it checks if the msg.sender (e.g., UnstakeManager) has been
+        // approved by the user (`from`) to spend this amount.
         _spendAllowance(from, _msgSender(), amount);
         _burn(from, amount);
     }
-    
+
     /**
-     * @notice Update the contract version
-     * @param _newVersion New version string
+     * @notice Updates the version string of the contract.
+     * @param _newVersion The new version string (e.g., "1.1.0").
      */
     function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
         version = _newVersion;
         emit VersionUpdated(_newVersion);
     }
-    
+
     /**
-     * @notice Request a contract upgrade with timelock
+     * @notice Begins the 2-day timelock for a contract logic upgrade.
+     * @dev This function prevents immediate, potentially malicious upgrades by enforcing a waiting period.
      */
     function requestUpgrade() external onlyRole(ADMIN_ROLE) {
         if (upgradeControl.requested) {
-            require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK, 
+            require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK,
                 "Previous upgrade request still in timelock period");
         }
         upgradeControl.requestTime = block.timestamp;
@@ -111,7 +136,8 @@ contract LSToken is
     }
 
     /**
-     * @notice Cancel an upgrade request
+     * @notice Cancels a pending upgrade request.
+     * @dev Allows an admin to abort an upgrade if an issue is discovered before it's authorized.
      */
     function cancelUpgrade() external onlyRole(ADMIN_ROLE) {
         require(upgradeControl.requested, "No upgrade to cancel");
@@ -119,31 +145,34 @@ contract LSToken is
         emit UpgradeCancelled(upgradeControl.requestTime);
         upgradeControl.requestTime = 0;
     }
-    
+
     /**
-     * @notice Check if an upgrade is requested
-     * @return requested Whether an upgrade is requested
-     * @return requestTime When the upgrade was requested
+     * @notice A view function to check the status of a pending upgrade.
+     * @dev Useful for off-chain clients and monitoring tools to see if an upgrade is coming.
+     * @return requested True if an upgrade is pending, false otherwise.
+     * @return requestTime The timestamp when the current upgrade was requested.
      */
     function upgradeRequested() external view returns (bool requested, uint256 requestTime) {
         return (upgradeControl.requested, upgradeControl.requestTime);
     }
-    
+
     /**
-     * @notice Authorize an upgrade
-     * @param newImplementation Address of the new implementation
+     * @notice Authorizes the upgrade to a new implementation contract.
+     * @dev This is an internal function required by OpenZeppelin's UUPS pattern. It is called by the
+     * proxy contract during the `upgradeTo` call. It enforces the upgrade request and timelock.
+     * @param newImplementation The address of the new logic contract.
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {
         require(newImplementation != address(0), "LSToken: invalid implementation");
-        
+
         require(upgradeControl.requested, "LSToken: upgrade not requested");
         require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK, "LSToken: timelock not expired");
-        
-        // Reset upgrade request flag once used
+
+        // Reset the upgrade flag after a successful authorization.
         upgradeControl.requested = false;
-        
+
         emit UpgradeAuthorized(newImplementation, version);
     }
-    
+
     uint256[30] private __gap;
 }

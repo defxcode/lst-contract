@@ -46,11 +46,8 @@ contract VaultFactory is
         string lsTokenSymbol;
         uint256 createdAt;
         bool active;
-        TokenType tokenType;
     }
-    
-    enum TokenType { STANDARD, REBASING, NATIVE_ETH }
-    
+
     struct TokenConfig {
         uint256 minDeposit;
         uint256 maxDeposit;
@@ -58,9 +55,6 @@ contract VaultFactory is
         uint256 feePercent;
         uint256 cooldownPeriod;
         uint256 floatPercent;
-        bool isRebasingToken;
-        bool supportsShares;
-        TokenType tokenType;
         CustodianConfig[] custodians;
     }
     
@@ -224,8 +218,7 @@ contract VaultFactory is
             underlyingSymbol: underlyingSymbol,
             lsTokenSymbol: lsTokenSymbol,
             createdAt: block.timestamp,
-            active: true,
-            tokenType: config.tokenType
+            active: true
         });
         
         vaults[vaultAddress] = vaultInfo;
@@ -266,8 +259,6 @@ contract VaultFactory is
         
         IUnstakeManager(unstakeManager).setCooldownPeriod(config.cooldownPeriod);
         IUnstakeManager(unstakeManager).setMinUnstakeAmount(config.minDeposit);
-        
-        ILSTokenVault(vault).setTokenType(ILSTokenVault.TokenType(uint256(config.tokenType)), config.supportsShares);
     }
     
     function _setupCustodians(address vault, TokenConfig memory config) internal {
@@ -396,10 +387,7 @@ contract VaultFactory is
         config.feePercent = vaultContract.feePercent();
         config.cooldownPeriod = unstakeManagerContract.cooldownPeriod();
         config.floatPercent = uint256(vaultContract.floatPercent());
-        config.tokenType = TokenType(uint256(vaults[vault].tokenType));
-        config.isRebasingToken = (config.tokenType != TokenType.STANDARD);
-        config.supportsShares = config.isRebasingToken;
-        
+
         return config;
     }
     
