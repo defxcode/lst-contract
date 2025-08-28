@@ -15,7 +15,8 @@ import "./interfaces/ILSTokenVault.sol";
 /**
  * @title VaultManager
  * @notice A stateless administrative control module for an LSTokenVault.
- * @dev This contract is the single point of entry for admins to change parameters. It holds no funds
+ * @dev This contract is the single point of entry for admins to change parameters.
+ * It holds no funds
  * or configuration state itself, but is granted a MANAGER_ROLE on the LSTokenVault to execute commands.
  */
 contract VaultManager is
@@ -26,18 +27,16 @@ UUPSUpgradeable,
 IVaultManager
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-
     // --- Roles ---
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
-
     // --- Constants ---
     uint256 public constant MAX_FEE_PERCENT = 30;
-
     // --- State Variables ---
     address public vault;
     IEmergencyController public emergencyController;
     IUnstakeManager public unstakeManager;
+    ITokenSilo public tokenSilo;
 
     // --- Version and upgrade controls ---
     string public version;
@@ -72,7 +71,6 @@ IVaultManager
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(ADMIN_ROLE, _admin);
         _grantRole(MANAGER_ROLE, _admin);
-
         version = "1.0.0";
     }
 
@@ -87,6 +85,13 @@ IVaultManager
         require(_unstakeManager != address(0), "VaultManager: invalid unstake manager");
         unstakeManager = IUnstakeManager(_unstakeManager);
         emit UnstakeManagerSet(_unstakeManager);
+    }
+
+    // Added Function
+    function setTokenSilo(address _silo) external override onlyRole(ADMIN_ROLE) {
+        require(_silo != address(0), "VaultManager: invalid silo");
+        tokenSilo = ITokenSilo(_silo);
+        emit TokenSiloSet(_silo);
     }
 
     // --- Proxied Admin Functions ---
@@ -152,6 +157,13 @@ IVaultManager
         require(vault != address(0), "VaultManager: vault not set");
         ILSTokenVault(vault).setFloatPercent(_floatPercent);
     }
+
+    // Added Function
+    function setSiloRateLimit(uint256 _maxDailyWithdrawalAmount) external override onlyRole(ADMIN_ROLE) {
+        require(address(tokenSilo) != address(0), "VaultManager: silo not set");
+        tokenSilo.setRateLimit(_maxDailyWithdrawalAmount);
+    }
+
 
     // --- Upgrade Functions ---
     function requestUpgrade() external onlyRole(ADMIN_ROLE) {

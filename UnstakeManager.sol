@@ -20,7 +20,8 @@ import "./interfaces/ILSTokenVault.sol";
 
 /**
 * @title UnstakeManager
-* @notice This contract manages the entire asynchronous unstaking process. It handles user requests,
+* @notice This contract manages the entire asynchronous unstaking process.
+* It handles user requests,
 * manages a queue of pending unstakes, facilitates processing by an admin/manager, and allows users
 * to claim their funds from the TokenSilo after a cooldown period.
 */
@@ -32,7 +33,6 @@ UUPSUpgradeable,
 IUnstakeManager
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-
     // --- Roles ---
     /// @notice The VAULT_ROLE is granted to the LSTokenVault, allowing it to initiate unstake requests on behalf of users.
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
@@ -49,43 +49,41 @@ IUnstakeManager
     ILSToken public lsToken;
     ITokenSilo public silo;
     IEmergencyController public emergencyController;
-
     // Token metadata
     string public underlyingSymbol;
     string public lsTokenSymbol;
-
     /// @notice A struct representing a single user's unstake request.
     struct UnstakeRequest {
         uint256 lsTokenAmount;      // The original amount of LSTokens burned.
         uint256 requestTimestamp;   // The timestamp of the request.
         uint256 underlyingAmount;   // The calculated amount of underlying tokens owed.
-        RequestStatus status;       // The current status of the request (Queued, Processing, etc.).
+        RequestStatus status;
+        // The current status of the request (Queued, Processing, etc.).
         uint256 requestId;          // A unique ID for the request.
     }
 
     // --- Configuration ---
-    uint256 public cooldownPeriod;      // The mandatory waiting period before claiming.
+    uint256 public cooldownPeriod;
+    // The mandatory waiting period before claiming.
     uint256 public maxCooldownPeriod;   // An upper bound for the cooldown period, for safety.
     uint256 public minUnstakeAmount;    // The minimum amount of LSTokens a user can unstake.
-
     // --- Queue Management ---
     uint256 private nextRequestId; // A counter to generate unique request IDs.
     /// @notice Maps a user's address to their single active unstake request.
     mapping(address => UnstakeRequest) public unstakeRequests;
     /// @notice Maps a unique request ID back to the user's address for quick lookups.
     mapping(uint256 => address) public requestIdToAddress;
-
     /// @notice An array of all request IDs currently in the queue (status QUEUED or PROCESSING).
     uint256[] public queuedRequestIds;
     uint256 public queueLength; // The total number of requests in the queue.
-    uint256 public totalQueuedUnstakeAmount; // The total value of underlying tokens in the queue.
+    uint256 public totalQueuedUnstakeAmount;
+    // The total value of underlying tokens in the queue.
 
     // Auto-cleanup tracking
     uint256 private processedRequestCounter;
     uint256 private lastCleanupCounter;
     uint256 private constant CLEANUP_INTERVAL = 50;
     uint256 private constant CLEANUP_BATCH_SIZE = 5;
-
     // --- Upgrade Control ---
     string public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
@@ -114,7 +112,6 @@ IUnstakeManager
     event UpgradeRequested(uint256 requestTime);
     event UpgradeCancelled(uint256 requestTime);
     event UpgradeAuthorized(address indexed implementation, string currentVersion);
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -134,7 +131,6 @@ IUnstakeManager
         require(_underlyingToken != address(0), "UnstakeManager: invalid underlying token");
         require(_lsToken != address(0), "UnstakeManager: invalid LS token");
         require(_silo != address(0), "UnstakeManager: invalid silo");
-
         __AccessControl_init();
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
@@ -237,7 +233,6 @@ IUnstakeManager
         UD60x18 precisionUD = safeWrap(1e18);
 
         uint256 underlyingAmount = safeUnwrap(lsTokenUD.mul(currentIndexUD).div(precisionUD));
-
         if (minUnderlyingAmount > 0) {
             require(underlyingAmount >= minUnderlyingAmount, "UnstakeManager: slippage too high");
         }
@@ -251,7 +246,6 @@ IUnstakeManager
             status: RequestStatus.QUEUED,
             requestId: requestId
         });
-
         requestIdToAddress[requestId] = user;
         queuedRequestIds.push(requestId);
         queueLength++;
@@ -263,7 +257,8 @@ IUnstakeManager
 
     /**
      * @notice Allows a manager to flag specific requests as ready for processing.
-     * @dev This is the first step of the two-step manual processing flow. It changes the request
+     * @dev This is the first step of the two-step manual processing flow.
+     * It changes the request
      * status from `QUEUED` to `PROCESSING`.
      * @param requestIds An array of request IDs to mark.
      * @return processedCount The number of requests successfully marked.
@@ -280,7 +275,6 @@ IUnstakeManager
 
             if (user == address(0)) continue;
             UnstakeRequest storage request = unstakeRequests[user];
-
             if (request.status != RequestStatus.QUEUED || request.requestId != requestId) continue;
             request.status = RequestStatus.PROCESSING;
 
@@ -309,7 +303,8 @@ IUnstakeManager
 
     /**
      * @notice Processes a batch of unstake requests that have been marked for processing.
-     * @dev This is the second step of the manual processing flow. It pulls the required amount of
+     * @dev This is the second step of the manual processing flow.
+     * It pulls the required amount of
      * underlying tokens from the LSTokenVault and deposits them into the TokenSilo for the users.
      * @param batchSize The maximum number of requests to process in this transaction.
      * @return processed The number of requests successfully processed.
@@ -380,7 +375,8 @@ IUnstakeManager
 
     /**
      * @notice Allows a manager to process a single user's unstake request directly, bypassing the two-step flow.
-     * @dev This is useful for handling specific or urgent requests. It moves a request from `QUEUED`
+     * @dev This is useful for handling specific or urgent requests.
+     * It moves a request from `QUEUED`
      * directly to `PROCESSED`.
      * @param user The address of the user whose request should be processed.
      * @return processed True if the request was successfully processed.
@@ -421,7 +417,8 @@ IUnstakeManager
 
     /**
      * @notice Allows a user to claim their underlying tokens after the cooldown period has ended.
-     * @dev This function is callable by the user themselves. It commands the TokenSilo to transfer
+     * @dev This function is callable by the user themselves.
+     * It commands the TokenSilo to transfer
      * the funds to the user and cleans up the completed request from storage.
      * @param user The user who is claiming their funds.
      */
@@ -441,16 +438,15 @@ IUnstakeManager
         require(request.status == RequestStatus.PROCESSED, "UnstakeManager: unstake not processed yet");
         require(block.timestamp >= request.requestTimestamp + cooldownPeriod, "UnstakeManager: cooldown not finished");
 
-        uint256 underlyingAmount = request.underlyingAmount;
+        uint256 amountToClaim = silo.balanceOf(user);
+        require(amountToClaim > 0, "UnstakeManager: no balance in silo to claim");
+
         uint256 requestId = request.requestId;
-        require(underlyingAmount > 0, "UnstakeManager: calculated underlying amount is 0");
 
         delete unstakeRequests[user];
         delete requestIdToAddress[requestId];
-        _removeFromQueue(requestId);
 
-        require(address(silo) != address(0), "UnstakeManager: silo not set");
-        silo.withdrawTo(user, underlyingAmount);
+        silo.withdrawTo(user, amountToClaim);
 
         processedRequestCounter++;
         if (processedRequestCounter >= lastCleanupCounter + CLEANUP_INTERVAL) {
@@ -458,7 +454,7 @@ IUnstakeManager
             lastCleanupCounter = processedRequestCounter;
         }
 
-        emit Claimed(user, underlyingAmount, requestId);
+        emit Claimed(user, amountToClaim, requestId);
     }
 
     /**
@@ -568,7 +564,8 @@ IUnstakeManager
             }
         }
 
-        uint256 size = limit < activeCount ? limit : activeCount;
+        uint256 size = limit < activeCount ?
+            limit : activeCount;
 
         users = new address[](size);
         amounts = new uint256[](size);

@@ -2,7 +2,8 @@
 pragma solidity 0.8.19;
 
 // External libraries and contracts
-import { UD60x18, wrap, unwrap } from "@prb/math/src/UD60x18.sol"; // For high-precision math
+import { UD60x18, wrap, unwrap } from "@prb/math/src/UD60x18.sol";
+// For high-precision math
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -10,14 +11,14 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
 // Internal interfaces and contracts
 import "./interfaces/ILSToken.sol";
 import "./interfaces/IUnderlyingToken.sol";
 import "./interfaces/ITokenSilo.sol";
 import "./interfaces/IUnstakeManager.sol";
 import "./interfaces/IEmergencyController.sol";
-import "./LSTokenVaultStorage.sol"; // Inherits all storage variables
+import "./LSTokenVaultStorage.sol";
+// Inherits all storage variables
 
 /**
 * @title LSTokenVault
@@ -33,14 +34,12 @@ UUPSUpgradeable,
 LSTokenVaultStorage
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-
     // --- State Variables (Interfaces) ---
 
     /// @notice The contract that manages the unstaking process.
     IUnstakeManager public unstakeManager;
     /// @notice The global emergency controller contract.
     IEmergencyController public emergencyController;
-
     // --- Upgrade Control ---
     string public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
@@ -52,7 +51,6 @@ LSTokenVaultStorage
     event EmergencyControllerSet(address indexed emergencyController);
     event Deposited(address indexed user, uint256 underlyingAmount, uint256 lsTokenAmount);
     event FeesWithdrawn(address indexed receiver, uint256 amount);
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -60,8 +58,8 @@ LSTokenVaultStorage
 
     /**
      * @notice Initializes the LSTokenVault with its core parameters and roles.
-    * @dev Called only once by the VaultFactory upon deployment.
-    */
+     * @dev Called only once by the VaultFactory upon deployment.
+     */
     function initialize(
         address _underlyingToken,
         address _lsToken,
@@ -102,8 +100,8 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the address of the UnstakeManager contract.
-    * @dev A critical setup function to enable the unstaking process. Can only be called by an admin.
-    * @param _unstakeManager The address of the deployed UnstakeManager.
+     * @dev A critical setup function to enable the unstaking process. Can only be called by an admin.
+     * @param _unstakeManager The address of the deployed UnstakeManager.
     */
     function setUnstakeManager(address _unstakeManager) external onlyRole(ADMIN_ROLE) {
         require(_unstakeManager != address(0), "Invalid unstake manager");
@@ -113,8 +111,8 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the address of the global EmergencyController contract.
-    * @dev Links the vault to the system's central kill switch. Can only be called by an admin.
-    * @param _emergencyController The address of the deployed EmergencyController.
+     * @dev Links the vault to the system's central kill switch. Can only be called by an admin.
+     * @param _emergencyController The address of the deployed EmergencyController.
     */
     function setEmergencyController(address _emergencyController) external onlyRole(ADMIN_ROLE) {
         require(_emergencyController != address(0), "Invalid emergency controller");
@@ -126,10 +124,10 @@ LSTokenVaultStorage
 
     /**
      * @notice Calculates the current value of the LSToken index, accounting for linear vesting of yield.
-    * @dev To prevent flash loan manipulation, yield is vested over `YIELD_VESTING_DURATION`.
-    * This function smoothly interpolates the index value between `lastIndex` and `targetIndex`.
-    * @return The current, time-vested index representing the LSToken's value.
-    */
+     * @dev To prevent flash loan manipulation, yield is vested over `YIELD_VESTING_DURATION`.
+     * This function smoothly interpolates the index value between `lastIndex` and `targetIndex`.
+     * @return The current, time-vested index representing the LSToken's value.
+     */
     function getCurrentIndex() public view returns (uint256) {
         if (block.timestamp >= vestingEndTime || vestingEndTime == 0) return targetIndex;
         if (vestingEndTime <= lastUpdateTime) return targetIndex;
@@ -139,7 +137,6 @@ LSTokenVaultStorage
         uint256 delta = targetIndex - lastIndex;
 
         uint256 indexIncrease = calculatePercentage(delta, elapsed, duration);
-
         if (indexIncrease > delta) { // Safety check to prevent overshooting the target
             indexIncrease = delta;
         }
@@ -149,10 +146,10 @@ LSTokenVaultStorage
 
     /**
      * @notice Adds staking rewards (yield) to the vault, increasing the value of the LSToken for all holders.
-    * @dev Can only be called by a `REWARDER_ROLE`. Takes a protocol fee and sets a new `targetIndex`.
-    * This increase in value is then vested over 8 hours via the `getCurrentIndex` logic.
-    * @param yieldAmount The amount of underlying tokens being added as rewards.
-    */
+     * @dev Can only be called by a `REWARDER_ROLE`. Takes a protocol fee and sets a new `targetIndex`.
+     * This increase in value is then vested over 8 hours via the `getCurrentIndex` logic.
+     * @param yieldAmount The amount of underlying tokens being added as rewards.
+     */
     function addYield(uint256 yieldAmount) external onlyRole(REWARDER_ROLE) {
         require(yieldAmount > 0, "Yield must be > 0");
         require(address(emergencyController) != address(0), "Emergency controller not set");
@@ -165,7 +162,6 @@ LSTokenVaultStorage
 
         uint256 feeAmount = calculatePercentage(yieldAmount, feePercent, PERCENT_PRECISION);
         uint256 distributableYield = yieldAmount - feeAmount;
-
         if (feeAmount > 0 && feeReceiver != address(0)) {
             totalFeeCollected += feeAmount;
             emit FeesCollected(feeAmount);
@@ -178,12 +174,10 @@ LSTokenVaultStorage
 
         uint256 maxIndexIncrease = calculatePercentage(current, MAX_INDEX_INCREASE_PERCENT, PERCENT_PRECISION);
         require(deltaIndex <= maxIndexIncrease, "Yield too high");
-
         uint256 newTarget = current + deltaIndex;
 
         uint256 indexChangePercent = calculatePercentage(deltaIndex, 100, current);
         require(indexChangePercent <= maxPriceImpactPercentage, "Index change too high");
-
         uint256 oldIndex = lastIndex;
         lastIndex = current;
         targetIndex = newTarget;
@@ -196,37 +190,36 @@ LSTokenVaultStorage
 
     /**
      * @notice The main function for users to deposit underlying assets and mint LSTokens.
-    * @param underlyingAmount The amount of the underlying token the user wants to stake.
-    */
+     * @param underlyingAmount The amount of the underlying token the user wants to stake.
+     */
     function deposit(uint256 underlyingAmount) external whenNotPaused nonReentrant {
         _deposit(msg.sender, underlyingAmount, 0);
     }
 
     /**
      * @notice Overloaded deposit function with slippage protection.
-    * @param underlyingAmount The amount of the underlying token to stake.
-    * @param minLSTokenAmount The minimum amount of LSTokens the user will accept.
-    */
+     * @param underlyingAmount The amount of the underlying token to stake.
+     * @param minLSTokenAmount The minimum amount of LSTokens the user will accept.
+     */
     function deposit(uint256 underlyingAmount, uint256 minLSTokenAmount) external whenNotPaused nonReentrant {
         _deposit(msg.sender, underlyingAmount, minLSTokenAmount);
     }
 
     /**
      * @notice Allows a `MANAGER_ROLE` to deposit on behalf of another user.
-    * @param user The address that will receive the minted LSTokens.
-    * @param underlyingAmount The amount of the underlying token to stake.
-    */
+     * @param user The address that will receive the minted LSTokens.
+     * @param underlyingAmount The amount of the underlying token to stake.
+     */
     function depositFor(address user, uint256 underlyingAmount) external whenNotPaused nonReentrant onlyRole(MANAGER_ROLE){
         _deposit(user, underlyingAmount, 0);
     }
 
     /**
      * @notice Internal logic for handling all deposits.
-    * @dev Performs all security checks, calculates the LSToken amount, mints tokens, and triggers custodian transfers.
-    */
+     * @dev Performs all security checks, calculates the LSToken amount, mints tokens, and triggers custodian transfers.
+     */
     function _deposit(address user, uint256 underlyingAmount, uint256 minLSTokenAmount) internal {
         require(address(emergencyController) != address(0), "Emergency controller not set");
-
         IEmergencyController.EmergencyState state = emergencyController.getEmergencyState();
         require(state != IEmergencyController.EmergencyState.DEPOSITS_PAUSED &&
         state != IEmergencyController.EmergencyState.FULL_PAUSE, "Deposits paused");
@@ -238,20 +231,12 @@ LSTokenVaultStorage
 
         uint256 userBalance = lsToken.balanceOf(user);
         uint256 currentIndex = getCurrentIndex();
-
         uint256 existingValue = convertTokens(userBalance, currentIndex, INDEX_PRECISION, false);
         require(existingValue + underlyingAmount <= maxUserDeposit, "User limit reached");
 
         _validateRateLimit(underlyingAmount, true);
 
-        uint256 totalSupply = lsToken.totalSupply();
-        if (totalSupply > 0) {
-            uint256 maxAmount = calculatePercentage(totalSupply, maxTransactionPercentage, 10000);
-            require(underlyingAmount <= maxAmount, "Transaction too large");
-        }
-
         uint256 lsTokenAmount = convertTokens(underlyingAmount, currentIndex, INDEX_PRECISION, true);
-
         if (minLSTokenAmount > 0) {
             require(lsTokenAmount >= minLSTokenAmount, "Slippage too high");
         }
@@ -270,20 +255,17 @@ LSTokenVaultStorage
 
     /**
      * @notice Internal function to distribute a portion of new deposits to the custodian wallets.
-    * @dev Iterates through custodians and transfers funds based on their configured allocation percentage.
-    * The remainder is kept in the vault as a "float" for liquidity.
-    * @param underlyingAmount The amount to be distributed.
+     * @dev Iterates through custodians and transfers funds based on their configured allocation percentage.
+     * The remainder is kept in the vault as a "float" for liquidity.
+     * @param underlyingAmount The amount to be distributed.
     */
     function _handleCustodianTransfer(uint256 underlyingAmount) internal {
         if (custodians.length == 0 || emergencyController.isRecoveryModeActive()) return;
-
         for (uint256 i = 0; i < custodians.length; i++) {
             if (custodians[i].wallet == address(0)) continue;
-
             uint256 allocation = allocationToPercent(custodians[i].allocation);
 
             uint256 custodianAmount = calculatePercentage(underlyingAmount, allocation, 100);
-
             if (custodianAmount > 0) {
                 totalCustodianFunds += custodianAmount;
                 underlyingToken.safeTransfer(custodians[i].wallet, custodianAmount);
@@ -294,25 +276,25 @@ LSTokenVaultStorage
 
     /**
      * @notice Initiates the unstaking process for the user.
-    * @dev Delegates the request to the `UnstakeManager`.
+     * @dev Delegates the request to the `UnstakeManager`.
     * @param lsTokenAmount The amount of LSTokens the user wishes to redeem.
-    */
+     */
     function requestUnstake(uint256 lsTokenAmount) external nonReentrant {
         _requestUnstake(lsTokenAmount, 0);
     }
 
     /**
      * @notice Overloaded `requestUnstake` with slippage protection.
-    * @param lsTokenAmount The amount of LSTokens to redeem.
+     * @param lsTokenAmount The amount of LSTokens to redeem.
     * @param minUnderlyingAmount The minimum amount of underlying tokens the user will accept.
-    */
+     */
     function requestUnstake(uint256 lsTokenAmount, uint256 minUnderlyingAmount) external nonReentrant {
         _requestUnstake(lsTokenAmount, minUnderlyingAmount);
     }
 
     /**
      * @notice Internal logic for handling all unstake requests.
-    */
+     */
     function _requestUnstake(uint256 lsTokenAmount, uint256 minUnderlyingAmount) internal {
         require(address(unstakeManager) != address(0), "Unstake manager not set");
         require(address(emergencyController) != address(0), "Emergency controller not set");
@@ -324,12 +306,6 @@ LSTokenVaultStorage
         require(unstakeEnabled, "Unstaking disabled");
 
         _validateRateLimit(lsTokenAmount, false);
-
-        uint256 totalSupply = lsToken.totalSupply();
-        if (totalSupply > 0) {
-            uint256 maxAmount = calculatePercentage(totalSupply, maxTransactionPercentage, 10000);
-            require(lsTokenAmount <= maxAmount, "Transaction too large");
-        }
 
         unstakeManager.requestUnstake(msg.sender, lsTokenAmount, minUnderlyingAmount, getCurrentIndex());
     }
@@ -364,7 +340,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the percentage of new deposits to be kept in the vault for liquidity.
-    */
+     */
     function setFloatPercent(uint256 _floatPercent) external onlyRole(MANAGER_ROLE) {
         require(_floatPercent <= 100, "Invalid float percentage");
         uint256 totalCustodianAllocation = 0;
@@ -378,7 +354,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Allows an admin to correct the on-chain accounting when custodians return funds to the vault.
-    */
+     */
     function recordCustodianFundsReturn(uint256 amount) external onlyRole(MANAGER_ROLE) {
         require(amount <= totalCustodianFunds, "Amount exceeds custodian funds");
         totalCustodianFunds -= amount;
@@ -386,7 +362,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the daily deposit and withdrawal rate limits.
-    */
+     */
     function setRateLimits(uint256 _maxDailyDeposit, uint256 _maxDailyWithdrawal) external onlyRole(MANAGER_ROLE) {
         depositLimit.maxAmount = uint128(_maxDailyDeposit);
         withdrawalLimit.maxAmount = uint128(_maxDailyWithdrawal);
@@ -394,7 +370,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Configures the parameters for flash loan protection.
-    */
+     */
     function setFlashLoanProtection(uint256 _maxTransactionPercentage, uint256 _maxPriceImpactPercentage) external onlyRole(MANAGER_ROLE) {
         require(_maxTransactionPercentage <= 5000, "Percentage too high");
         require(_maxPriceImpactPercentage <= 2000, "Impact too high");
@@ -404,7 +380,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Allows an admin to approve the UnstakeManager to spend the vault's underlying tokens.
-    */
+     */
     function approveUnstakeManager(uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(address(unstakeManager) != address(0), "Unstake manager not set");
         underlyingToken.safeApprove(address(unstakeManager), amount);
@@ -412,10 +388,9 @@ LSTokenVaultStorage
 
     /**
      * @notice Allows a `MANAGER_ROLE` to withdraw all accrued protocol fees.
-    */
+     */
     function withdrawFees() external nonReentrant onlyRole(MANAGER_ROLE){
         require(feeReceiver != address(0), "LSTokenVault: fee receiver not set");
-
         uint256 amountToWithdraw = totalFeeCollected;
         require(amountToWithdraw > 0, "LSTokenVault: no fees to withdraw");
         require(underlyingToken.balanceOf(address(this)) >= amountToWithdraw, "LSTokenVault: insufficient vault balance for fees");
@@ -461,15 +436,15 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the maximum total deposit amount for the vault.
-    * @dev Can only be called by the VaultManager contract, which has the MANAGER_ROLE.
-    */
+     * @dev Can only be called by the VaultManager contract, which has the MANAGER_ROLE.
+     */
     function setMaxTotalDeposit(uint256 _maxTotal) external onlyRole(MANAGER_ROLE) {
         _setMaxTotalDeposit(_maxTotal);
     }
 
     /**
      * @notice Sets the maximum deposit amount for a single user.
-    * @dev Can only be called by the VaultManager.
+     * @dev Can only be called by the VaultManager.
     */
     function setMaxUserDeposit(uint256 _maxUser) external onlyRole(MANAGER_ROLE) {
         _setMaxUserDeposit(_maxUser);
@@ -477,7 +452,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the protocol fee percentage taken from yield.
-    * @dev Can only be called by the VaultManager.
+     * @dev Can only be called by the VaultManager.
     */
     function setFeePercent(uint256 _feePercent) external onlyRole(MANAGER_ROLE) {
         _setFeePercent(_feePercent);
@@ -485,7 +460,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Sets the address that receives protocol fees.
-    * @dev Can only be called by the VaultManager.
+     * @dev Can only be called by the VaultManager.
     */
     function setFeeReceiver(address _feeReceiver) external onlyRole(MANAGER_ROLE) {
         _setFeeReceiver(_feeReceiver);
@@ -493,7 +468,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Enables or disables depositing.
-    * @dev Can only be called by the VaultManager.
+     * @dev Can only be called by the VaultManager.
     */
     function setStakeEnabled(bool _enabled) external onlyRole(MANAGER_ROLE) {
         _setStakeEnabled(_enabled);
@@ -501,7 +476,7 @@ LSTokenVaultStorage
 
     /**
      * @notice Enables or disables unstaking.
-    * @dev Can only be called by the VaultManager.
+     * @dev Can only be called by the VaultManager.
     */
     function setUnstakeEnabled(bool _enabled) external onlyRole(MANAGER_ROLE) {
         _setUnstakeEnabled(_enabled);

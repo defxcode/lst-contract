@@ -11,15 +11,15 @@ interface IVaultManager {
     // --- Events ---
     event EmergencyControllerSet(address indexed controller);
     event UnstakeManagerSet(address indexed unstakeManager);
+    event TokenSiloSet(address indexed silo); // Added Event
     event CooldownPeriodSet(uint256 period);
     event MinUnstakeAmountSet(uint256 amount);
     event AdminTransfer(address indexed to, uint256 amount);
 
-
     // --- Contract Links Setup ---
     function setEmergencyController(address _emergencyController) external;
     function setUnstakeManager(address _unstakeManager) external;
-
+    function setTokenSilo(address _silo) external; // Added Function
 
     // --- Proxied Admin Functions ---
 
@@ -39,4 +39,7 @@ interface IVaultManager {
     // LSTokenVault Actions
     function withdrawFees() external;
     function transferCollateral(address to, uint256 amount) external;
+
+    // TokenSilo Configuration
+    function setSiloRateLimit(uint256 _maxDailyWithdrawalAmount) external; // Added Function
 }

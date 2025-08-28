@@ -75,4 +75,8 @@ interface ILSTokenVault {
     function maxUserDeposit() external view returns (uint256);
     function feePercent() external view returns (uint256);
     function floatPercent() external view returns (uint8);
+    function maxTransactionPercentage() external view returns (uint16);
+    function maxPriceImpactPercentage() external view returns (uint16);
+    function depositLimit() external view returns (uint128, uint128);
+    function withdrawalLimit() external view returns (uint128, uint128);
 }

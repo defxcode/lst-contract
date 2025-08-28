@@ -27,50 +27,49 @@ PausableUpgradeable,
 UUPSUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-
     // --- Roles ---
     /// @notice The VAULT_ROLE is granted to contracts that are allowed to deposit into and withdraw from the silo.
     /// @dev This is typically the UnstakeManager, which moves funds on behalf of users.
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
-
     // --- State Variables ---
     IERC20Upgradeable public underlyingToken;
     string public tokenSymbol;
     IEmergencyController public emergencyController;
-
     /// @notice Tracks the amount of underlying tokens each user has waiting in the silo.
     mapping(address => uint256) public userDeposits;
-
     /// @notice Aggregates the overall state of the silo for accounting and health checks.
     struct SiloState {
         uint256 totalWithdrawn; // Total amount ever withdrawn (regular + early).
         uint256 totalPendingClaims; // Total amount currently held in the silo waiting for user claims.
-        uint256 totalCollectedFees; // Total fees collected from early withdrawals.
+        uint256 totalCollectedFees;
+        // Total fees collected from early withdrawals.
         uint256 lastActivityTimestamp; // Timestamp of the last deposit or withdrawal.
     }
     SiloState public state;
 
     /// @notice Configuration for the early withdrawal feature.
     struct CooldownConfig {
-        uint256 unlockFee; // The fee (in basis points) for early withdrawal.
+        uint256 unlockFee;
+        // The fee (in basis points) for early withdrawal.
         bool earlyUnlockEnabled; // Flag to enable/disable the early withdrawal feature.
         address feeCollector; // The address that receives early withdrawal fees.
-        bool claimsPaused; // A flag automatically triggered if liquidity drops below the threshold.
-        uint256 liquidityThreshold; // The minimum liquidity ratio (balance / pending claims) required.
+        bool claimsPaused;
+        // A flag automatically triggered if liquidity drops below the threshold.
+        uint256 liquidityThreshold;
+        // The minimum liquidity ratio (balance / pending claims) required.
     }
     CooldownConfig public config;
-
     /// @notice Configuration for withdrawal rate limiting.
     struct RateLimit {
-        uint256 maxDailyAmount; // Max total amount that can be withdrawn in a 24h period.
-        uint256 currentAmount; // The amount withdrawn in the current 24h window.
+        uint256 maxDailyAmount;
+        // Max total amount that can be withdrawn in a 24h period.
+        uint256 currentAmount;
+        // The amount withdrawn in the current 24h window.
         uint256 windowStartTime; // Start time of the current 24h window.
-        uint256 maxTransactionPercentage; // Max percentage of total deposits for a single transaction.
     }
     RateLimit public withdrawalLimit;
-
     // --- Upgrade Control ---
     struct UpgradeControl {
         string version;
@@ -79,7 +78,6 @@ UUPSUpgradeable
     }
     UpgradeControl public upgradeControl;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
-
     /**
      * @notice Safe wrapper for UD60x18 with bounds checking
     */
@@ -115,7 +113,6 @@ UUPSUpgradeable
     event EmergencyControllerSet(address indexed controller);
     event RateLimitUpdated(uint256 maxDailyWithdrawalAmount);
     event DailyLimitReset(uint256 timestamp);
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -123,11 +120,11 @@ UUPSUpgradeable
 
     /**
      * @notice Initializes the silo contract with its core parameters.
-    * @dev Called by the VaultFactory during deployment.
+     * @dev Called by the VaultFactory during deployment.
     * @param _underlyingToken The underlying token address.
     * @param _tokenSymbol The token symbol.
     * @param vault The address that will be granted VAULT_ROLE (typically the UnstakeManager).
-    */
+     */
     function initialize(
         address _underlyingToken,
         string memory _tokenSymbol,
@@ -157,14 +154,13 @@ UUPSUpgradeable
 
         withdrawalLimit.maxDailyAmount = 50_000 ether;
         withdrawalLimit.windowStartTime = block.timestamp;
-        withdrawalLimit.maxTransactionPercentage = 5; // 5%
 
         upgradeControl.version = "1.0.0";
     }
 
     /**
      * @notice Sets the address of the global EmergencyController.
-    */
+     */
     function setEmergencyController(address _emergencyController) external onlyRole(ADMIN_ROLE) {
         require(_emergencyController != address(0), "Silo: invalid controller");
         emergencyController = IEmergencyController(_emergencyController);
@@ -173,10 +169,10 @@ UUPSUpgradeable
 
     /**
      * @notice Receives funds from the UnstakeManager for a user who has processed an unstake request.
-    * @dev This function is protected by `VAULT_ROLE`.
+     * @dev This function is protected by `VAULT_ROLE`.
     * @param user The end user for whom the funds are being deposited.
     * @param amount The amount of underlying tokens to deposit.
-    */
+     */
     function depositFor(address user, uint256 amount) external onlyRole(VAULT_ROLE) whenNotPaused nonReentrant {
         require(user != address(0), "Silo: cannot deposit to zero");
         require(amount > 0, "Silo: amount is zero");
@@ -203,10 +199,10 @@ UUPSUpgradeable
 
     /**
      * @notice Sends funds to a user who is claiming their unstaked tokens after the cooldown period.
-    * @dev This function is protected by `VAULT_ROLE` and is called by the UnstakeManager.
+     * @dev This function is protected by `VAULT_ROLE` and is called by the UnstakeManager.
     * @param user The user who is claiming their funds.
     * @param amount The amount of underlying tokens to withdraw.
-    */
+     */
     function withdrawTo(address user, uint256 amount) external onlyRole(VAULT_ROLE) whenNotPaused nonReentrant {
         require(user != address(0), "Silo: cannot withdraw to zero");
         require(amount > 0, "Silo: amount is zero");
@@ -243,10 +239,8 @@ UUPSUpgradeable
 
     /**
      * @notice Allows a user to withdraw their funds from the silo before the cooldown period ends, for a fee.
-     * @dev This function is subject to stricter security checks (rate limiting and max transaction size)
-     * than the standard `claim()` process. In certain edge cases (e.g., a single user with a large
-     * share of the silo), these checks may prevent a full withdrawal.
-     * @param amount The amount the user wishes to withdraw early.
+     * @dev This function is subject to rate limiting.
+    * @param amount The amount the user wishes to withdraw early.
      */
     function earlyWithdraw(uint256 amount) external whenNotPaused nonReentrant {
         require(config.earlyUnlockEnabled, "Silo: early unlock disabled");
@@ -264,7 +258,6 @@ UUPSUpgradeable
         }
 
         _validateRateLimit(amount);
-        _validateAgainstFlashLoans(amount);
 
         UD60x18 amountUD = safeWrap(amount);
         UD60x18 feeUD = safeWrap(config.unlockFee);
@@ -272,7 +265,6 @@ UUPSUpgradeable
 
         uint256 feeAmount = safeUnwrap(amountUD.mul(feeUD).div(basisPointsUD));
         uint256 amountAfterFee = amount - feeAmount;
-
         uint256 siloBalance = underlyingToken.balanceOf(address(this));
         if (siloBalance < amount) {
             emit LiquidityAlert(siloBalance, amount);
@@ -285,7 +277,6 @@ UUPSUpgradeable
         state.totalWithdrawn += amountAfterFee;
         state.totalCollectedFees += feeAmount;
         state.lastActivityTimestamp = block.timestamp;
-
         if (feeAmount > 0 && config.feeCollector != address(0)) {
             underlyingToken.safeTransfer(config.feeCollector, feeAmount);
         }
@@ -298,9 +289,9 @@ UUPSUpgradeable
 
     /**
      * @notice Internal function to check if the silo has enough funds to cover all pending claims.
-    * @dev If the ratio of `balance / totalPendingClaims` falls below `liquidityThreshold`, it automatically
+     * @dev If the ratio of `balance / totalPendingClaims` falls below `liquidityThreshold`, it automatically
     * pauses all claims to prevent a bank run on an under-funded silo.
-    */
+     */
     function _checkLiquidity() internal {
         if (state.totalPendingClaims == 0) {
             if (config.claimsPaused) {
@@ -319,7 +310,6 @@ UUPSUpgradeable
         uint256 liquidityRatio = safeUnwrap(
             siloBalanceUD.mul(basisPointsUD).div(pendingClaimsUD)
         );
-
         if (liquidityRatio < config.liquidityThreshold && !config.claimsPaused) {
             config.claimsPaused = true;
             emit ClaimsPausedSet(true);
@@ -333,10 +323,9 @@ UUPSUpgradeable
 
     /**
      * @notice Internal function to validate a withdrawal against daily rate limits.
-    */
+     */
     function _validateRateLimit(uint256 amount) internal {
         if (address(emergencyController) != address(0) && emergencyController.isRecoveryModeActive()) return;
-
         if (block.timestamp >= withdrawalLimit.windowStartTime + 1 days) {
             withdrawalLimit.currentAmount = 0;
             withdrawalLimit.windowStartTime = block.timestamp;
@@ -345,43 +334,19 @@ UUPSUpgradeable
 
         require(withdrawalLimit.currentAmount + amount <= withdrawalLimit.maxDailyAmount,
             "Silo: daily withdrawal limit reached");
-
         withdrawalLimit.currentAmount += amount;
     }
 
     /**
-     * @notice Validate transaction size against flash loan protection.
-     * @dev This check prevents any single transaction from withdrawing a disproportionately large
-     * share of the silo's total liquidity. It is a critical safeguard for the collective pool.
-     * NOTE: This may prevent a user from early-withdrawing their full balance if they are the
-     * only depositor or if their deposit constitutes a very large percentage of the total funds,
-     * as the system prioritizes pool safety. The standard `claim()` function is unaffected.
-     */
-    function _validateAgainstFlashLoans(uint256 amount) internal view {
-        if (address(emergencyController) != address(0) && emergencyController.isRecoveryModeActive()) return;
-
-        if (withdrawalLimit.maxTransactionPercentage > 0 && state.totalPendingClaims > 0) {
-            UD60x18 totalPendingClaimsUD = safeWrap(state.totalPendingClaims);
-            UD60x18 maxPercentUD = safeWrap(withdrawalLimit.maxTransactionPercentage);
-            UD60x18 hundredUD = safeWrap(100);
-
-            uint256 maxAmount = safeUnwrap(
-                totalPendingClaimsUD.mul(maxPercentUD).div(hundredUD)
-            );
-            require(amount <= maxAmount, "Silo: transaction too large");
-        }
-    }
-
-    /**
      * @notice Gets the amount of underlying tokens a specific user has in the silo.
-    */
+     */
     function balanceOf(address user) external view returns (uint256) {
         return userDeposits[user];
     }
 
     /**
      * @notice Gets the total amount of underlying tokens currently held in the silo for all users.
-    */
+     */
     function getTotalDeposited() external view returns (uint256) {
         return state.totalPendingClaims;
     }
@@ -391,7 +356,7 @@ UUPSUpgradeable
     * @param amount The amount to calculate the fee for.
     * @return feeAmount The calculated fee.
     * @return netAmount The amount the user would receive after the fee.
-    */
+     */
     function calculateEarlyWithdrawalFee(uint256 amount) external view returns (uint256 feeAmount, uint256 netAmount) {
         UD60x18 amountUD = safeWrap(amount);
         UD60x18 feeUD = safeWrap(config.unlockFee);
@@ -404,7 +369,7 @@ UUPSUpgradeable
 
     /**
      * @notice A view function that returns a comprehensive status of the silo's liquidity.
-    */
+     */
     function getLiquidityStatus() external view returns (
         uint256 liquidity,
         uint256 pendingClaims,
@@ -413,7 +378,6 @@ UUPSUpgradeable
         IEmergencyController.EmergencyState emergencyState
     ) {
         uint256 siloBalance = underlyingToken.balanceOf(address(this));
-
         uint256 liquidityRatio;
         if (state.totalPendingClaims > 0) {
             UD60x18 siloBalanceUD = safeWrap(siloBalance);
@@ -424,7 +388,8 @@ UUPSUpgradeable
                 siloBalanceUD.mul(basisPointsUD).div(pendingClaimsUD)
             );
         } else {
-            liquidityRatio = 10000; // 100% if no pending claims
+            liquidityRatio = 10000;
+            // 100% if no pending claims
         }
 
         IEmergencyController.EmergencyState eState = address(emergencyController) != address(0) ?
@@ -456,7 +421,8 @@ UUPSUpgradeable
         if (address(emergencyController) != address(0)) {
             require(!emergencyController.isRecoveryModeActive(), "Silo: recovery mode active");
         }
-        require(_fee <= 1000, "Silo: fee too high"); // Max 10%
+        require(_fee <= 1000, "Silo: fee too high");
+        // Max 10%
         config.unlockFee = _fee;
         emit UnlockFeeSet(_fee);
     }
@@ -495,14 +461,6 @@ UUPSUpgradeable
         withdrawalLimit.currentAmount = 0;
         withdrawalLimit.windowStartTime = block.timestamp;
         emit DailyLimitReset(block.timestamp);
-    }
-
-    function setFlashLoanProtection(uint256 _maxTransactionPercentage) external onlyRole(ADMIN_ROLE) {
-        if (address(emergencyController) != address(0)) {
-            require(!emergencyController.isRecoveryModeActive(), "Silo: recovery mode active");
-        }
-        require(_maxTransactionPercentage <= 50, "Silo: percentage too high");
-        withdrawalLimit.maxTransactionPercentage = _maxTransactionPercentage;
     }
 
     function pause() external onlyRole(ADMIN_ROLE) {
