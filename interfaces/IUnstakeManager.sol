@@ -67,6 +67,11 @@ interface IUnstakeManager {
     function processUserUnstake(address user) external returns (bool processed);
 
     /**
+     * @notice Withdraw underlying tokens early from the silo for a fee
+     */
+    function earlyWithdraw() external;
+
+    /**
      * @notice Cancel an unstake request
      */
     function cancelUnstake(address user) external returns (bool success);

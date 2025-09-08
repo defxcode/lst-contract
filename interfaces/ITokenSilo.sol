@@ -29,7 +29,7 @@ interface ITokenSilo {
     // Core functions
     function depositFor(address user, uint256 amount) external;
     function withdrawTo(address user, uint256 amount) external;
-    function earlyWithdraw(uint256 amount) external;
+    function earlyWithdrawFor(address user, uint256 amount) external;
 
     // View functions
     function balanceOf(address user) external view returns (uint256);
@@ -59,7 +59,6 @@ interface ITokenSilo {
     function unpause() external;
     function rescueTokens(address token, address to, uint256 amount) external;
     function setVault(address _vault) external;
-    function updateVersion(string memory _newVersion) external;
     function requestUpgrade() external;
     function cancelUpgrade() external;
 

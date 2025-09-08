@@ -139,6 +139,7 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     uint256 public feePercent; // The percentage of yield taken as a protocol fee.
     address public feeReceiver; // The address that receives protocol fees.
     uint256 public totalFeeCollected; // The running total of collected fees waiting for withdrawal.
+    uint256 public unclaimedYield;    // Yield forfeited by early unstakers, to be redistributed.
 
     // --- DYNAMIC Multi-Custodian ---
     struct CustodianData {
@@ -157,6 +158,7 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     uint256 public maxUserDeposit; // The maximum total amount a single user can deposit.
     uint256 public lastStateUpdate; // Timestamp of the last major state change.
     uint256 public totalDepositedAmount; // The total amount of underlying tokens ever deposited.
+    mapping(address => uint256) public lastDepositTime; // Timestamp of the last deposit for each user.
 
     // --- Rate Limiting ---
     struct DailyLimit {
@@ -216,6 +218,9 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         require(wallet != address(0), "Invalid wallet");
         require(allocationPercent <= 100, "Invalid allocation");
         require(custodians.length < MAX_CUSTODIANS, "Too many custodians");
+        for (uint256 i = 0; i < custodians.length; i++) {
+            require(custodians[i].wallet != wallet, "Custodian already exists");
+        }
 
         uint256 totalAllocation = allocationPercent;
         for (uint256 i = 0; i < custodians.length; i++) {
@@ -358,5 +363,5 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         unstakeEnabled = _enabled;
     }
 
-    uint256[30] private __gap; // Storage gap for upgradeability
+    uint256[35] private __gap;
 }

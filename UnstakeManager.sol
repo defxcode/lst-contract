@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/IAccessControl.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 // Internal interfaces
 import "./interfaces/ILSToken.sol";
@@ -76,16 +77,10 @@ IUnstakeManager
     /// @notice An array of all request IDs currently in the queue (status QUEUED or PROCESSING).
     uint256[] public queuedRequestIds;
     uint256 public queueLength; // The total number of requests in the queue.
-    uint256 public totalQueuedUnstakeAmount;
-    // The total value of underlying tokens in the queue.
+    uint256 public totalQueuedUnstakeAmount; // The total value of underlying tokens in the queue.
 
-    // Auto-cleanup tracking
-    uint256 private processedRequestCounter;
-    uint256 private lastCleanupCounter;
-    uint256 private constant CLEANUP_INTERVAL = 50;
-    uint256 private constant CLEANUP_BATCH_SIZE = 5;
     // --- Upgrade Control ---
-    string public version;
+    uint256 public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
     uint256 public upgradeRequestTime;
     bool public upgradeRequested;
@@ -144,8 +139,6 @@ IUnstakeManager
         lsTokenSymbol = _getTokenSymbol(_lsToken);
 
         nextRequestId = 1;
-        processedRequestCounter = 0;
-        lastCleanupCounter = 0;
 
         cooldownPeriod = 7 days;
         maxCooldownPeriod = 30 days;
@@ -157,7 +150,7 @@ IUnstakeManager
         _grantRole(MANAGER_ROLE, msg.sender);
 
         require(hasRole(VAULT_ROLE, _vault), "UnstakeManager: vault role not granted");
-        version = "1.0.0";
+        version = 1;
     }
 
     /**
@@ -448,13 +441,41 @@ IUnstakeManager
 
         silo.withdrawTo(user, amountToClaim);
 
-        processedRequestCounter++;
-        if (processedRequestCounter >= lastCleanupCounter + CLEANUP_INTERVAL) {
-            _cleanupOldRequests(CLEANUP_BATCH_SIZE);
-            lastCleanupCounter = processedRequestCounter;
-        }
-
         emit Claimed(user, amountToClaim, requestId);
+    }
+
+    /**
+     * @notice Allows a user to withdraw their funds from the silo before the cooldown period ends, for a fee.
+     * @dev This function calls the TokenSilo on the user's behalf and cleans up the request state.
+     */
+    function earlyWithdraw() external nonReentrant {
+        require(address(silo) != address(0), "UnstakeManager: silo not set");
+        require(address(emergencyController) != address(0), "UnstakeManager: emergency controller not set");
+
+        require(
+            emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.WITHDRAWALS_PAUSED &&
+            emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.FULL_PAUSE,
+            "UnstakeManager: withdrawals paused"
+        );
+        require(!emergencyController.isRecoveryModeActive(), "UnstakeManager: recovery mode active");
+
+        UnstakeRequest storage request = unstakeRequests[msg.sender];
+        require(request.lsTokenAmount > 0, "UnstakeManager: no pending unstake");
+        require(request.status == RequestStatus.PROCESSED, "UnstakeManager: unstake not processed yet");
+
+        uint256 amountToWithdraw = silo.balanceOf(msg.sender);
+        require(amountToWithdraw > 0, "UnstakeManager: no balance in silo to withdraw");
+
+        uint256 requestId = request.requestId;
+
+        // Clean up the user's request state
+        delete unstakeRequests[msg.sender];
+        delete requestIdToAddress[requestId];
+
+        // Call the silo to perform the early withdrawal
+        ITokenSilo(silo).earlyWithdrawFor(msg.sender, amountToWithdraw);
+
+        emit Claimed(msg.sender, amountToWithdraw, requestId);
     }
 
     /**
@@ -486,36 +507,6 @@ IUnstakeManager
 
         emit UnstakeStatusChanged(user, RequestStatus.CANCELLED, requestId);
         return true;
-    }
-
-    /**
-     * @notice An internal function to clean up very old, completed request data.
-     * @dev Flagged as potentially redundant, as the primary functions already clean up after themselves.
-     */
-    function _cleanupOldRequests(uint256 batchSize) internal returns (uint256 cleaned) {
-        uint256 count = 0;
-        uint256 expirationTime = block.timestamp - 30 days;
-
-        for (uint256 i = 0; i < queuedRequestIds.length && count < batchSize; i++) {
-            uint256 requestId = queuedRequestIds[i];
-            address user = requestIdToAddress[requestId];
-
-            if (user == address(0)) continue;
-
-            UnstakeRequest storage request = unstakeRequests[user];
-            if (request.status == RequestStatus.PROCESSED && request.requestTimestamp < expirationTime) {
-                delete unstakeRequests[user];
-                delete requestIdToAddress[requestId];
-                _removeFromQueue(requestId);
-                count++;
-            }
-        }
-
-        if (count > 0) {
-            emit RequestsCleaned(count);
-        }
-
-        return count;
     }
 
     /**
@@ -628,7 +619,7 @@ IUnstakeManager
     // --- Role and Upgrade Functions ---
 
     function grantRole(bytes32 role, address account) public override(AccessControlUpgradeable, IUnstakeManager) onlyRole(getRoleAdmin(role)) {
-        super.grantRole(role, account);
+        _grantRole(role, account);
     }
 
     function requestUpgrade() external onlyRole(ADMIN_ROLE) {
@@ -654,13 +645,11 @@ IUnstakeManager
         require(block.timestamp >= upgradeRequestTime + UPGRADE_TIMELOCK, "UnstakeManager: timelock not expired");
 
         upgradeRequested = false;
-        emit UpgradeAuthorized(newImplementation, version);
+
+        version++;
+
+        emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        version = _newVersion;
-        emit VersionUpdated(_newVersion);
-    }
-
-    uint256[25] private __gap;
+    uint256[40] private __gap;
 }
