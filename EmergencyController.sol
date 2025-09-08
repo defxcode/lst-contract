@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IEmergencyController.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title EmergencyController
@@ -39,7 +40,7 @@ contract EmergencyController is
     uint256 public constant RECOVERY_DELAY = 24 hours;
 
     /// @notice The current version of this contract, used for tracking upgrades.
-    string public version;
+    uint256 public version;
     /// @notice The mandatory 2-day waiting period for a contract upgrade to be authorized.
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
     /// @notice The timestamp when a contract upgrade was requested.
@@ -79,7 +80,7 @@ contract EmergencyController is
         _emergencyState = EmergencyState.NORMAL;
         recoveryModeActive = false;
 
-        version = "1.0.0";
+        version = 1;
     }
 
     /**
@@ -133,6 +134,7 @@ contract EmergencyController is
      */
     function resumeOperations() external override onlyRole(ADMIN_ROLE) {
         require(!recoveryModeActive, "EmergencyController: recovery mode active");
+        require(recoveryModeActivationTime == 0, "EmergencyController: recovery mode scheduled");
         _emergencyState = EmergencyState.NORMAL;
         emit EmergencyStateChanged(EmergencyState.NORMAL);
     }
@@ -192,8 +194,6 @@ contract EmergencyController is
      * needs to call `resumeOperations()` to fully re-enable the protocol.
      */
     function deactivateRecoveryMode() external override onlyRole(ADMIN_ROLE) {
-        require(recoveryModeActive, "EmergencyController: recovery not active");
-
         recoveryModeActive = false;
         recoveryModeActivationTime = 0; // Reset the timer
         emit RecoveryModeDeactivated(block.timestamp);
@@ -236,20 +236,13 @@ contract EmergencyController is
 
         upgradeRequested = false;
 
-        emit UpgradeAuthorized(newImplementation, version);
-    }
+        version++;
 
-    /**
-     * @notice Updates the version string of the contract.
-     * @param _newVersion The new version string (e.g., "1.1.0").
-     */
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        version = _newVersion;
-        emit VersionUpdated(_newVersion);
+        emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
     /**
      * @dev This is a storage gap for UUPS upgradeable contracts
      */
-    uint256[40] private __gap;
+    uint256[54] private __gap;
 }

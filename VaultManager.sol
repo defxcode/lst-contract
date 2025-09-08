@@ -11,6 +11,7 @@ import "./interfaces/ITokenSilo.sol";
 import "./interfaces/IEmergencyController.sol";
 import "./interfaces/IUnstakeManager.sol";
 import "./interfaces/ILSTokenVault.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title VaultManager
@@ -39,7 +40,7 @@ IVaultManager
     ITokenSilo public tokenSilo;
 
     // --- Version and upgrade controls ---
-    string public version;
+    uint256 public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
     uint256 public upgradeRequestTime;
     bool public upgradeRequested;
@@ -71,7 +72,7 @@ IVaultManager
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(ADMIN_ROLE, _admin);
         _grantRole(MANAGER_ROLE, _admin);
-        version = "1.0.0";
+        version = 1;
     }
 
     // --- Contract Links Setup ---
@@ -182,18 +183,14 @@ IVaultManager
         upgradeRequestTime = 0;
     }
 
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        version = _newVersion;
-        emit VersionUpdated(_newVersion);
-    }
-
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {
         require(newImplementation != address(0), "VaultManager: invalid implementation");
         require(upgradeRequested, "VaultManager: upgrade not requested");
         require(block.timestamp >= upgradeRequestTime + UPGRADE_TIMELOCK, "VaultManager: timelock not expired");
         upgradeRequested = false;
-        emit UpgradeAuthorized(newImplementation, version);
+        version++;
+        emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
-    uint256[20] private __gap;
+    uint256[40] private __gap;
 }

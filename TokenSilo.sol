@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IEmergencyController.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
 * @title TokenSilo
@@ -72,7 +73,7 @@ UUPSUpgradeable
     RateLimit public withdrawalLimit;
     // --- Upgrade Control ---
     struct UpgradeControl {
-        string version;
+        uint256 version;
         uint256 requestTime;
         bool requested;
     }
@@ -155,7 +156,7 @@ UUPSUpgradeable
         withdrawalLimit.maxDailyAmount = 50_000 ether;
         withdrawalLimit.windowStartTime = block.timestamp;
 
-        upgradeControl.version = "1.0.0";
+        upgradeControl.version = 1;
     }
 
     /**
@@ -221,7 +222,6 @@ UUPSUpgradeable
         uint256 siloBalance = underlyingToken.balanceOf(address(this));
         if (siloBalance < amount) {
             emit LiquidityAlert(siloBalance, amount);
-            config.claimsPaused = true;
             revert("Silo: insufficient liquidity for claim");
         }
 
@@ -241,12 +241,13 @@ UUPSUpgradeable
      * @notice Allows a user to withdraw their funds from the silo before the cooldown period ends, for a fee.
      * @dev This function is subject to rate limiting.
     * @param amount The amount the user wishes to withdraw early.
+    * @param user The user who on behalf the call is called
      */
-    function earlyWithdraw(uint256 amount) external whenNotPaused nonReentrant {
+    function earlyWithdrawFor(address user, uint256 amount) external onlyRole(VAULT_ROLE) whenNotPaused nonReentrant {
         require(config.earlyUnlockEnabled, "Silo: early unlock disabled");
         require(!config.claimsPaused, "Silo: claims are paused due to liquidity");
         require(amount > 0, "Silo: amount is zero");
-        require(userDeposits[msg.sender] >= amount, "Silo: insufficient balance");
+        require(userDeposits[user] >= amount, "Silo: insufficient balance");
 
         if (address(emergencyController) != address(0)) {
             require(
@@ -268,11 +269,10 @@ UUPSUpgradeable
         uint256 siloBalance = underlyingToken.balanceOf(address(this));
         if (siloBalance < amount) {
             emit LiquidityAlert(siloBalance, amount);
-            config.claimsPaused = true;
             revert("Silo: insufficient liquidity for claim");
         }
 
-        userDeposits[msg.sender] -= amount;
+        userDeposits[user] -= amount;
         state.totalPendingClaims -= amount;
         state.totalWithdrawn += amountAfterFee;
         state.totalCollectedFees += feeAmount;
@@ -280,11 +280,11 @@ UUPSUpgradeable
         if (feeAmount > 0 && config.feeCollector != address(0)) {
             underlyingToken.safeTransfer(config.feeCollector, feeAmount);
         }
-        underlyingToken.safeTransfer(msg.sender, amountAfterFee);
+        underlyingToken.safeTransfer(user, amountAfterFee);
 
         _checkLiquidity();
 
-        emit EarlyWithdrawn(msg.sender, amount, feeAmount);
+        emit EarlyWithdrawn(user, amount, feeAmount);
     }
 
     /**
@@ -493,11 +493,6 @@ UUPSUpgradeable
         _grantRole(VAULT_ROLE, _vault);
     }
 
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        upgradeControl.version = _newVersion;
-        emit VersionUpdated(_newVersion);
-    }
-
     function requestUpgrade() external onlyRole(ADMIN_ROLE) {
         if (upgradeControl.requested) {
             require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK,
@@ -525,8 +520,12 @@ UUPSUpgradeable
         require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK, "Silo: timelock not expired");
 
         upgradeControl.requested = false;
-        emit UpgradeAuthorized(newImplementation, upgradeControl.version);
+
+        uint256 oldVersion = upgradeControl.version;
+        upgradeControl.version++;
+
+        emit UpgradeAuthorized(newImplementation, Strings.toString(oldVersion));
     }
 
-    uint256[20] private __gap;
+    uint256[41] private __gap;
 }
