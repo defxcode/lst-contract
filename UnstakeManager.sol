@@ -76,14 +76,8 @@ IUnstakeManager
     /// @notice An array of all request IDs currently in the queue (status QUEUED or PROCESSING).
     uint256[] public queuedRequestIds;
     uint256 public queueLength; // The total number of requests in the queue.
-    uint256 public totalQueuedUnstakeAmount;
-    // The total value of underlying tokens in the queue.
+    uint256 public totalQueuedUnstakeAmount; // The total value of underlying tokens in the queue.
 
-    // Auto-cleanup tracking
-    uint256 private processedRequestCounter;
-    uint256 private lastCleanupCounter;
-    uint256 private constant CLEANUP_INTERVAL = 50;
-    uint256 private constant CLEANUP_BATCH_SIZE = 5;
     // --- Upgrade Control ---
     string public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
@@ -144,8 +138,6 @@ IUnstakeManager
         lsTokenSymbol = _getTokenSymbol(_lsToken);
 
         nextRequestId = 1;
-        processedRequestCounter = 0;
-        lastCleanupCounter = 0;
 
         cooldownPeriod = 7 days;
         maxCooldownPeriod = 30 days;
@@ -448,12 +440,6 @@ IUnstakeManager
 
         silo.withdrawTo(user, amountToClaim);
 
-        processedRequestCounter++;
-        if (processedRequestCounter >= lastCleanupCounter + CLEANUP_INTERVAL) {
-            _cleanupOldRequests(CLEANUP_BATCH_SIZE);
-            lastCleanupCounter = processedRequestCounter;
-        }
-
         emit Claimed(user, amountToClaim, requestId);
     }
 
@@ -488,11 +474,6 @@ IUnstakeManager
         // Call the silo to perform the early withdrawal
         ITokenSilo(silo).earlyWithdrawFor(msg.sender, amountToWithdraw);
 
-        processedRequestCounter++;
-        if (processedRequestCounter >= lastCleanupCounter + CLEANUP_INTERVAL) {
-            _cleanupOldRequests(CLEANUP_BATCH_SIZE);
-            lastCleanupCounter = processedRequestCounter;
-        }
         emit Claimed(msg.sender, amountToWithdraw, requestId);
     }
 
@@ -525,36 +506,6 @@ IUnstakeManager
 
         emit UnstakeStatusChanged(user, RequestStatus.CANCELLED, requestId);
         return true;
-    }
-
-    /**
-     * @notice An internal function to clean up very old, completed request data.
-     * @dev Flagged as potentially redundant, as the primary functions already clean up after themselves.
-     */
-    function _cleanupOldRequests(uint256 batchSize) internal returns (uint256 cleaned) {
-        uint256 count = 0;
-        uint256 expirationTime = block.timestamp - 30 days;
-
-        for (uint256 i = 0; i < queuedRequestIds.length && count < batchSize; i++) {
-            uint256 requestId = queuedRequestIds[i];
-            address user = requestIdToAddress[requestId];
-
-            if (user == address(0)) continue;
-
-            UnstakeRequest storage request = unstakeRequests[user];
-            if (request.status == RequestStatus.PROCESSED && request.requestTimestamp < expirationTime) {
-                delete unstakeRequests[user];
-                delete requestIdToAddress[requestId];
-                _removeFromQueue(requestId);
-                count++;
-            }
-        }
-
-        if (count > 0) {
-            emit RequestsCleaned(count);
-        }
-
-        return count;
     }
 
     /**
