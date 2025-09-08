@@ -218,6 +218,9 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         require(wallet != address(0), "Invalid wallet");
         require(allocationPercent <= 100, "Invalid allocation");
         require(custodians.length < MAX_CUSTODIANS, "Too many custodians");
+        for (uint256 i = 0; i < custodians.length; i++) {
+            require(custodians[i].wallet != wallet, "Custodian already exists");
+        }
 
         uint256 totalAllocation = allocationPercent;
         for (uint256 i = 0; i < custodians.length; i++) {
