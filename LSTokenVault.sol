@@ -536,5 +536,5 @@ LSTokenVaultStorage
         _unpause();
     }
 
-    uint256[30] private __gap;
+    uint256[31] private __gap;
 }

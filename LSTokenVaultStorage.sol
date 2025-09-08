@@ -363,5 +363,5 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         unstakeEnabled = _enabled;
     }
 
-    uint256[30] private __gap; // Storage gap for upgradeability
+    uint256[35] private __gap;
 }

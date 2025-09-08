@@ -192,5 +192,5 @@ IVaultManager
         emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
-    uint256[20] private __gap;
+    uint256[40] private __gap;
 }

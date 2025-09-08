@@ -527,5 +527,5 @@ UUPSUpgradeable
         emit UpgradeAuthorized(newImplementation, Strings.toString(oldVersion));
     }
 
-    uint256[20] private __gap;
+    uint256[41] private __gap;
 }

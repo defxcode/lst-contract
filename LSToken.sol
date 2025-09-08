@@ -176,5 +176,5 @@ UUPSUpgradeable
         return Strings.toString(version);
     }
 
-    uint256[30] private __gap;
+    uint256[40] private __gap;
 }

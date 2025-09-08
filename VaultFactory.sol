@@ -435,5 +435,5 @@ contract VaultFactory is
         version++;
     }
     
-    uint256[29] private __gap;
+    uint256[44] private __gap;
 }

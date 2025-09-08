@@ -651,5 +651,5 @@ IUnstakeManager
         emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
-    uint256[25] private __gap;
+    uint256[40] private __gap;
 }

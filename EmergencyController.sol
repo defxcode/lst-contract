@@ -245,5 +245,5 @@ contract EmergencyController is
     /**
      * @dev This is a storage gap for UUPS upgradeable contracts
      */
-    uint256[40] private __gap;
+    uint256[54] private __gap;
 }
