@@ -525,5 +525,16 @@ LSTokenVaultStorage
         upgradeRequested = false;
     }
 
+    function pause() external onlyRole(EMERGENCY_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(EMERGENCY_ROLE) {
+        if (address(emergencyController) != address(0)) {
+            require(!emergencyController.isRecoveryModeActive(), "Recovery mode active");
+        }
+        _unpause();
+    }
+
     uint256[30] private __gap;
 }
