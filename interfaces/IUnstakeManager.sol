@@ -21,7 +21,6 @@ interface IUnstakeManager {
     event UnstakeProcessed(address indexed user, uint256 underlyingAmount, uint256 requestId);
     event UnstakeProcessingFailed(address indexed user, uint256 underlyingAmount, uint256 requestId);
     event Claimed(address indexed user, uint256 underlyingAmount, uint256 requestId);
-    event RequestsCleaned(uint256 count);
     event EmergencyControllerSet(address indexed controller);
     event CooldownPeriodSet(uint256 period);
     event MinUnstakeAmountSet(uint256 amount);
