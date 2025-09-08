@@ -221,7 +221,6 @@ UUPSUpgradeable
         uint256 siloBalance = underlyingToken.balanceOf(address(this));
         if (siloBalance < amount) {
             emit LiquidityAlert(siloBalance, amount);
-            config.claimsPaused = true;
             revert("Silo: insufficient liquidity for claim");
         }
 
@@ -269,7 +268,6 @@ UUPSUpgradeable
         uint256 siloBalance = underlyingToken.balanceOf(address(this));
         if (siloBalance < amount) {
             emit LiquidityAlert(siloBalance, amount);
-            config.claimsPaused = true;
             revert("Silo: insufficient liquidity for claim");
         }
 
