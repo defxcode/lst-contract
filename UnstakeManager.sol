@@ -628,7 +628,7 @@ IUnstakeManager
     // --- Role and Upgrade Functions ---
 
     function grantRole(bytes32 role, address account) public override(AccessControlUpgradeable, IUnstakeManager) onlyRole(getRoleAdmin(role)) {
-        super.grantRole(role, account);
+        _grantRole(role, account);
     }
 
     function requestUpgrade() external onlyRole(ADMIN_ROLE) {
