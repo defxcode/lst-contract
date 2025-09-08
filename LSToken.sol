@@ -174,5 +174,13 @@ UUPSUpgradeable
         emit UpgradeAuthorized(newImplementation, version);
     }
 
+    /**
+     * @notice Overrides the default EIP-712 version to use the contract's own stateful version.
+     * @dev This ensures that permit signatures remain valid after contract upgrades.
+     */
+    function _EIP712Version() internal view override returns (string memory) {
+        return version;
+    }
+
     uint256[30] private __gap;
 }
