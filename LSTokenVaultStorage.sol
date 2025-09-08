@@ -157,6 +157,7 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     uint256 public maxUserDeposit; // The maximum total amount a single user can deposit.
     uint256 public lastStateUpdate; // Timestamp of the last major state change.
     uint256 public totalDepositedAmount; // The total amount of underlying tokens ever deposited.
+    mapping(address => uint256) public lastDepositTime; // Timestamp of the last deposit for each user.
 
     // --- Rate Limiting ---
     struct DailyLimit {
