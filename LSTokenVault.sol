@@ -408,6 +408,8 @@ LSTokenVaultStorage
      */
     function approveUnstakeManager(uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(address(unstakeManager) != address(0), "Unstake manager not set");
+        // To support tokens like USDT, first reset the allowance to 0.
+        underlyingToken.safeApprove(address(unstakeManager), 0);
         underlyingToken.safeApprove(address(unstakeManager), amount);
     }
 
