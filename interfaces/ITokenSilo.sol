@@ -59,7 +59,6 @@ interface ITokenSilo {
     function unpause() external;
     function rescueTokens(address token, address to, uint256 amount) external;
     function setVault(address _vault) external;
-    function updateVersion(string memory _newVersion) external;
     function requestUpgrade() external;
     function cancelUpgrade() external;
 

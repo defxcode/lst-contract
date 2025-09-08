@@ -11,14 +11,13 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-// Internal interfaces and contracts
 import "./interfaces/ILSToken.sol";
 import "./interfaces/IUnderlyingToken.sol";
 import "./interfaces/ITokenSilo.sol";
 import "./interfaces/IUnstakeManager.sol";
 import "./interfaces/IEmergencyController.sol";
 import "./LSTokenVaultStorage.sol";
-// Inherits all storage variables
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
 * @title LSTokenVault
@@ -41,7 +40,7 @@ LSTokenVaultStorage
     /// @notice The global emergency controller contract.
     IEmergencyController public emergencyController;
     // --- Upgrade Control ---
-    string public version;
+    uint256 public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
     uint256 public upgradeRequestTime;
     bool public upgradeRequested;
@@ -93,7 +92,7 @@ LSTokenVaultStorage
         _grantRole(EMERGENCY_ROLE, _admin);
 
         _setupDefaults(_admin);
-        version = "1.0.0";
+        version = 1;
     }
 
     // --- Contract Links Setup ---
@@ -523,6 +522,7 @@ LSTokenVaultStorage
         require(upgradeRequested, "Upgrade not requested");
         require(block.timestamp >= upgradeRequestTime + UPGRADE_TIMELOCK, "Timelock not expired");
         upgradeRequested = false;
+        version++;
     }
 
     function pause() external onlyRole(EMERGENCY_ROLE) {

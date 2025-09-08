@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title LSToken - Liquid Staking Token
@@ -30,7 +31,7 @@ UUPSUpgradeable
     // --- State Variables ---
 
     /// @notice The current version of this contract, used for off-chain tracking of upgrades.
-    string public version;
+    uint256 public version;
 
     /// @notice A struct to manage the state of the upgrade timelock mechanism.
     struct UpgradeControl {
@@ -71,7 +72,7 @@ UUPSUpgradeable
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
 
-        version = "1.0.0";
+        version = 1;
     }
 
     /**
@@ -110,15 +111,6 @@ UUPSUpgradeable
         // approved by the user (`from`) to spend this amount.
         _spendAllowance(from, _msgSender(), amount);
         _burn(from, amount);
-    }
-
-    /**
-     * @notice Updates the version string of the contract.
-     * @param _newVersion The new version string (e.g., "1.1.0").
-     */
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        version = _newVersion;
-        emit VersionUpdated(_newVersion);
     }
 
     /**
@@ -171,7 +163,9 @@ UUPSUpgradeable
         // Reset the upgrade flag after a successful authorization.
         upgradeControl.requested = false;
 
-        emit UpgradeAuthorized(newImplementation, version);
+        version++;
+
+        emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
     /**
@@ -179,7 +173,7 @@ UUPSUpgradeable
      * @dev This ensures that permit signatures remain valid after contract upgrades.
      */
     function _EIP712Version() internal view override returns (string memory) {
-        return version;
+        return Strings.toString(version);
     }
 
     uint256[30] private __gap;

@@ -10,6 +10,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/IAccessControl.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 // Internal interfaces
 import "./interfaces/ILSToken.sol";
@@ -79,7 +80,7 @@ IUnstakeManager
     uint256 public totalQueuedUnstakeAmount; // The total value of underlying tokens in the queue.
 
     // --- Upgrade Control ---
-    string public version;
+    uint256 public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
     uint256 public upgradeRequestTime;
     bool public upgradeRequested;
@@ -149,7 +150,7 @@ IUnstakeManager
         _grantRole(MANAGER_ROLE, msg.sender);
 
         require(hasRole(VAULT_ROLE, _vault), "UnstakeManager: vault role not granted");
-        version = "1.0.0";
+        version = 1;
     }
 
     /**
@@ -644,12 +645,10 @@ IUnstakeManager
         require(block.timestamp >= upgradeRequestTime + UPGRADE_TIMELOCK, "UnstakeManager: timelock not expired");
 
         upgradeRequested = false;
-        emit UpgradeAuthorized(newImplementation, version);
-    }
 
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        version = _newVersion;
-        emit VersionUpdated(_newVersion);
+        version++;
+
+        emit UpgradeAuthorized(newImplementation, Strings.toString(version - 1));
     }
 
     uint256[25] private __gap;

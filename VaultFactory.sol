@@ -10,6 +10,7 @@ import "./interfaces/ILSToken.sol";
 import "./interfaces/ITokenSilo.sol";
 import "./interfaces/IUnstakeManager.sol";
 import "./interfaces/IEmergencyController.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title VaultFactory
@@ -67,8 +68,8 @@ contract VaultFactory is
     
     address[] public allVaults;
     uint256 public totalVaults;
-    
-    string public version;
+
+    uint256 public version;
     uint256 public constant UPGRADE_TIMELOCK = 2 days;
     uint256 public upgradeRequestTime;
     bool public upgradeRequested;
@@ -118,7 +119,7 @@ contract VaultFactory is
         _grantRole(ADMIN_ROLE, _admin);
         _grantRole(MANAGER_ROLE, _admin);
         
-        version = "1.0.0";
+        version = 1;
     }
 
     function createVault(
@@ -431,6 +432,7 @@ contract VaultFactory is
         require(upgradeRequested, "Upgrade not requested");
         require(block.timestamp >= upgradeRequestTime + UPGRADE_TIMELOCK, "Timelock not expired");
         upgradeRequested = false;
+        version++;
     }
     
     uint256[29] private __gap;

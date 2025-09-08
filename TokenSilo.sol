@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IEmergencyController.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
 * @title TokenSilo
@@ -72,7 +73,7 @@ UUPSUpgradeable
     RateLimit public withdrawalLimit;
     // --- Upgrade Control ---
     struct UpgradeControl {
-        string version;
+        uint256 version;
         uint256 requestTime;
         bool requested;
     }
@@ -155,7 +156,7 @@ UUPSUpgradeable
         withdrawalLimit.maxDailyAmount = 50_000 ether;
         withdrawalLimit.windowStartTime = block.timestamp;
 
-        upgradeControl.version = "1.0.0";
+        upgradeControl.version = 1;
     }
 
     /**
@@ -492,11 +493,6 @@ UUPSUpgradeable
         _grantRole(VAULT_ROLE, _vault);
     }
 
-    function updateVersion(string memory _newVersion) external onlyRole(ADMIN_ROLE) {
-        upgradeControl.version = _newVersion;
-        emit VersionUpdated(_newVersion);
-    }
-
     function requestUpgrade() external onlyRole(ADMIN_ROLE) {
         if (upgradeControl.requested) {
             require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK,
@@ -524,7 +520,11 @@ UUPSUpgradeable
         require(block.timestamp >= upgradeControl.requestTime + UPGRADE_TIMELOCK, "Silo: timelock not expired");
 
         upgradeControl.requested = false;
-        emit UpgradeAuthorized(newImplementation, upgradeControl.version);
+
+        uint256 oldVersion = upgradeControl.version;
+        upgradeControl.version++;
+
+        emit UpgradeAuthorized(newImplementation, Strings.toString(oldVersion));
     }
 
     uint256[20] private __gap;
