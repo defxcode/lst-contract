@@ -139,6 +139,7 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     uint256 public feePercent; // The percentage of yield taken as a protocol fee.
     address public feeReceiver; // The address that receives protocol fees.
     uint256 public totalFeeCollected; // The running total of collected fees waiting for withdrawal.
+    uint256 public unclaimedYield;    // Yield forfeited by early unstakers, to be redistributed.
 
     // --- DYNAMIC Multi-Custodian ---
     struct CustodianData {

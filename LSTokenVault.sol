@@ -162,6 +162,11 @@ LSTokenVaultStorage
 
         uint256 feeAmount = calculatePercentage(yieldAmount, feePercent, PERCENT_PRECISION);
         uint256 distributableYield = yieldAmount - feeAmount;
+        // Add any previously forfeited yield to the distributable amount.
+        if (unclaimedYield > 0) {
+            distributableYield += unclaimedYield;
+            unclaimedYield = 0;
+        }
         if (feeAmount > 0 && feeReceiver != address(0)) {
             totalFeeCollected += feeAmount;
             emit FeesCollected(feeAmount);
@@ -316,7 +321,18 @@ LSTokenVaultStorage
         // Enforcing a withdrawal lock for a duration equal to the yield vesting period.
         require(block.timestamp >= lastDepositTime[msg.sender] + YIELD_VESTING_DURATION, "Withdrawal lock active");
 
-        unstakeManager.requestUnstake(msg.sender, lsTokenAmount, minUnderlyingAmount, getCurrentIndex());
+        // If unstaking during a vesting period, capture the forfeited yield for redistribution.
+        uint256 currentIndex = getCurrentIndex();
+        if (currentIndex < targetIndex) {
+            uint256 currentValue = convertTokens(lsTokenAmount, currentIndex, INDEX_PRECISION, false);
+            uint256 targetValue = convertTokens(lsTokenAmount, targetIndex, INDEX_PRECISION, false);
+
+            if (targetValue > currentValue) {
+                unclaimedYield += (targetValue - currentValue);
+            }
+        }
+
+        unstakeManager.requestUnstake(msg.sender, lsTokenAmount, minUnderlyingAmount, currentIndex);
     }
 
     // --- Custodian Management (ADMIN_ROLE) ---
