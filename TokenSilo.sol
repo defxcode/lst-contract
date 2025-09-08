@@ -241,12 +241,13 @@ UUPSUpgradeable
      * @notice Allows a user to withdraw their funds from the silo before the cooldown period ends, for a fee.
      * @dev This function is subject to rate limiting.
     * @param amount The amount the user wishes to withdraw early.
+    * @param user The user who on behalf the call is called
      */
-    function earlyWithdraw(uint256 amount) external whenNotPaused nonReentrant {
+    function earlyWithdrawFor(address user, uint256 amount) external onlyRole(VAULT_ROLE) whenNotPaused nonReentrant {
         require(config.earlyUnlockEnabled, "Silo: early unlock disabled");
         require(!config.claimsPaused, "Silo: claims are paused due to liquidity");
         require(amount > 0, "Silo: amount is zero");
-        require(userDeposits[msg.sender] >= amount, "Silo: insufficient balance");
+        require(userDeposits[user] >= amount, "Silo: insufficient balance");
 
         if (address(emergencyController) != address(0)) {
             require(
@@ -272,7 +273,7 @@ UUPSUpgradeable
             revert("Silo: insufficient liquidity for claim");
         }
 
-        userDeposits[msg.sender] -= amount;
+        userDeposits[user] -= amount;
         state.totalPendingClaims -= amount;
         state.totalWithdrawn += amountAfterFee;
         state.totalCollectedFees += feeAmount;
@@ -280,11 +281,11 @@ UUPSUpgradeable
         if (feeAmount > 0 && config.feeCollector != address(0)) {
             underlyingToken.safeTransfer(config.feeCollector, feeAmount);
         }
-        underlyingToken.safeTransfer(msg.sender, amountAfterFee);
+        underlyingToken.safeTransfer(user, amountAfterFee);
 
         _checkLiquidity();
 
-        emit EarlyWithdrawn(msg.sender, amount, feeAmount);
+        emit EarlyWithdrawn(user, amount, feeAmount);
     }
 
     /**

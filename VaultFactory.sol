@@ -243,8 +243,8 @@ contract VaultFactory is
         ILSToken(lsToken).grantRole(minterRole, vault);
         ILSToken(lsToken).grantRole(minterRole, unstakeManager);
         ILSToken(lsToken).grantRole(adminRole, globalAdmin);
-        
-        ITokenSilo(silo).grantRole(vaultRole, vault);
+
+        ITokenSilo(silo).grantRole(vaultRole, unstakeManager);
         ITokenSilo(silo).grantRole(adminRole, globalAdmin);
         
         IUnstakeManager(unstakeManager).grantRole(vaultRole, vault);

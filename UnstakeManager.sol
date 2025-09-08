@@ -458,6 +458,45 @@ IUnstakeManager
     }
 
     /**
+     * @notice Allows a user to withdraw their funds from the silo before the cooldown period ends, for a fee.
+     * @dev This function calls the TokenSilo on the user's behalf and cleans up the request state.
+     */
+    function earlyWithdraw() external nonReentrant {
+        require(address(silo) != address(0), "UnstakeManager: silo not set");
+        require(address(emergencyController) != address(0), "UnstakeManager: emergency controller not set");
+
+        require(
+            emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.WITHDRAWALS_PAUSED &&
+            emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.FULL_PAUSE,
+            "UnstakeManager: withdrawals paused"
+        );
+        require(!emergencyController.isRecoveryModeActive(), "UnstakeManager: recovery mode active");
+
+        UnstakeRequest storage request = unstakeRequests[msg.sender];
+        require(request.lsTokenAmount > 0, "UnstakeManager: no pending unstake");
+        require(request.status == RequestStatus.PROCESSED, "UnstakeManager: unstake not processed yet");
+
+        uint256 amountToWithdraw = silo.balanceOf(msg.sender);
+        require(amountToWithdraw > 0, "UnstakeManager: no balance in silo to withdraw");
+
+        uint256 requestId = request.requestId;
+
+        // Clean up the user's request state
+        delete unstakeRequests[msg.sender];
+        delete requestIdToAddress[requestId];
+
+        // Call the silo to perform the early withdrawal
+        ITokenSilo(silo).earlyWithdrawFor(msg.sender, amountToWithdraw);
+
+        processedRequestCounter++;
+        if (processedRequestCounter >= lastCleanupCounter + CLEANUP_INTERVAL) {
+            _cleanupOldRequests(CLEANUP_BATCH_SIZE);
+            lastCleanupCounter = processedRequestCounter;
+        }
+        emit Claimed(msg.sender, amountToWithdraw, requestId);
+    }
+
+    /**
      * @notice Allows a manager to cancel a user's pending unstake request.
      * @dev This function deletes the request and re-mints the user's LSTokens, effectively
      * reversing the `requestUnstake` action.
