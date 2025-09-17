@@ -11,7 +11,6 @@ The protocol is designed to be modular, secure, and highly configurable through 
 * **UnstakeManager**: Manages the entire withdrawal process, which includes a user-initiated request, a cooldown period, and the final claim for both regular and early withdrawals.
 * **TokenSilo**: A temporary holding contract where funds are placed during the unstaking cooldown period before they can be claimed by the user.
 * **EmergencyController**: A global, system-wide contract that provides powerful tools to pause activity and manage the protocol during emergencies.
-* **VaultFactory**: A factory contract used by the administrator to deploy and configure a complete new set of liquid staking contracts for a new underlying asset.
 
 ## Architecture & Design
 The system's modular architecture separates key functionalities into distinct, upgradeable contracts. This enhances security, simplifies maintenance, and allows for granular control over the protocol.
