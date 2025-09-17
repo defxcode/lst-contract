@@ -66,6 +66,7 @@ interface ILSTokenVault {
 
     // --- View Functions ---
     function getCurrentIndex() external view returns (uint256);
+    function targetIndex() external view returns (uint256);
     function getStats() external view returns (uint256 currentIndex, uint256 totalDeposited, uint256 totalSupply);
     function getTokenInfo() external view returns (address underlyingAddr, address lsTokenAddr, string memory underlyingSym, string memory lsTokenSym);
     function getLiquidityStatus() external view returns (uint256 vaultBalance, uint256 custodianBalance, uint256 totalAvailableAssets, uint256 indexedLiabilities);

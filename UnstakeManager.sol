@@ -102,6 +102,34 @@ IUnstakeManager
         return result;
     }
 
+    /**
+     * @notice Converts between two token amounts using a given exchange rate.
+     * @dev This is used to calculate the amount of LST to mint on cancellation.
+     * @param isDeposit If true, calculates `input * precision / rate`.
+     */
+    function _convertTokens(
+        uint256 inputAmount,
+        uint256 exchangeRate,
+        uint256 precision,
+        bool isDeposit
+    ) internal pure returns (uint256) {
+        if (inputAmount == 0) return 0;
+        UD60x18 inputUD = safeWrap(inputAmount);
+        UD60x18 rateUD = safeWrap(exchangeRate);
+        UD60x18 precisionUD = safeWrap(precision);
+
+        UD60x18 result;
+        if (isDeposit) {
+            // To get LSToken amount from underlying: (underlying * 1e18) / index
+            result = inputUD.mul(precisionUD).div(rateUD);
+        } else {
+            // To get underlying amount from LSToken: (lsToken * index) / 1e18
+            result = inputUD.mul(rateUD).div(precisionUD);
+        }
+
+        return safeUnwrap(result);
+    }
+
     // --- Events ---
     event VersionUpdated(string newVersion);
     event UpgradeRequested(uint256 requestTime);
@@ -493,9 +521,11 @@ IUnstakeManager
         require(user != address(0), "UnstakeManager: invalid user address");
         require(request.status == RequestStatus.QUEUED || request.status == RequestStatus.PROCESSING,
             "UnstakeManager: cannot cancel processed request");
-        uint256 lsTokenAmount = request.lsTokenAmount;
         uint256 underlyingAmount = request.underlyingAmount;
         uint256 requestId = request.requestId;
+
+        uint256 targetIndex = ILSTokenVault(vault).targetIndex();
+        uint256 lsTokenAmount = _convertTokens(underlyingAmount, targetIndex, 1e18, true);
 
         delete unstakeRequests[user];
         delete requestIdToAddress[requestId];
