@@ -401,10 +401,8 @@ LSTokenVaultStorage
     /**
      * @notice Configures the parameters for flash loan protection.
      */
-    function setFlashLoanProtection(uint256 _maxTransactionPercentage, uint256 _maxPriceImpactPercentage) external onlyRole(MANAGER_ROLE) {
-        require(_maxTransactionPercentage <= 5000, "Percentage too high");
+    function setFlashLoanProtection(uint256 _maxPriceImpactPercentage) external onlyRole(MANAGER_ROLE) {
         require(_maxPriceImpactPercentage <= 2000, "Impact too high");
-        maxTransactionPercentage = uint16(_maxTransactionPercentage);
         maxPriceImpactPercentage = uint16(_maxPriceImpactPercentage);
     }
 

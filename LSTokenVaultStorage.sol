@@ -170,7 +170,6 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     uint256 public limitWindowStart; // The timestamp when the current 24-hour rate limit window started.
 
     // --- Flash Loan Protection ---
-    uint16 public maxTransactionPercentage; // The max percentage of total supply a single transaction can be.
     uint16 public maxPriceImpactPercentage; // The max percentage the index can change in a single transaction.
 
     // --- Events ---
@@ -210,7 +209,6 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         });
 
         limitWindowStart = block.timestamp;
-        maxTransactionPercentage = 500; // 5.00% represented as 500 (precision of 10000)
         maxPriceImpactPercentage = 300; // 3.00% represented as 300
         lastStateUpdate = block.timestamp;
     }
