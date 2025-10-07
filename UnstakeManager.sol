@@ -336,9 +336,11 @@ IUnstakeManager
     {
         require(address(silo) != address(0), "UnstakeManager: silo not set");
         require(address(emergencyController) != address(0), "UnstakeManager: emergency controller not set");
+        IEmergencyController.EmergencyState state = emergencyController.getEmergencyState();
         require(
-            emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.FULL_PAUSE,
-            "UnstakeManager: system fully paused"
+            state != IEmergencyController.EmergencyState.FULL_PAUSE &&
+            state != IEmergencyController.EmergencyState.DEPOSITS_PAUSED,
+            "UnstakeManager: system deposits paused"
         );
         uint256 vaultBalance = underlyingToken.balanceOf(vault);
         uint256 successCount = 0;
@@ -386,9 +388,11 @@ IUnstakeManager
                     emit UnstakeProcessed(user, amount, requestId);
                     emit UnstakeStatusChanged(user, RequestStatus.PROCESSED, requestId);
                 } catch {
+                    underlyingToken.safeTransfer(vault, amount);
                     emit UnstakeProcessingFailed(user, amount, requestId);
                 }
             }
+            underlyingToken.safeApprove(address(silo), 0);
         }
 
         return (successCount, queueLength);
@@ -408,9 +412,11 @@ IUnstakeManager
         require(address(silo) != address(0), "UnstakeManager: silo not set");
         require(user != address(0), "UnstakeManager: invalid user address");
         require(address(emergencyController) != address(0), "UnstakeManager: emergency controller not set");
+        IEmergencyController.EmergencyState state = emergencyController.getEmergencyState();
         require(
-            emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.FULL_PAUSE,
-            "UnstakeManager: system fully paused"
+            state != IEmergencyController.EmergencyState.FULL_PAUSE &&
+            state != IEmergencyController.EmergencyState.DEPOSITS_PAUSED,
+            "UnstakeManager: system deposits paused"
         );
         UnstakeRequest storage request = unstakeRequests[user];
         require(request.status == RequestStatus.QUEUED, "UnstakeManager: request not in queue or already processing");
@@ -420,19 +426,28 @@ IUnstakeManager
 
         require(underlyingToken.balanceOf(vault) >= underlyingAmount, "UnstakeManager: insufficient vault balance");
 
-        request.status = RequestStatus.PROCESSED;
-        emit UnstakeStatusChanged(user, RequestStatus.PROCESSED, requestId);
         _transferFromVault(underlyingAmount);
         underlyingToken.safeApprove(address(silo), 0);
         underlyingToken.safeApprove(address(silo), underlyingAmount);
 
-        silo.depositFor(user, underlyingAmount);
+        try silo.depositFor(user, underlyingAmount) {
+            request.status = RequestStatus.PROCESSED;
+            emit UnstakeStatusChanged(user, RequestStatus.PROCESSED, requestId);
+            _removeFromQueue(requestId);
+            queueLength--;
+            totalQueuedUnstakeAmount -= underlyingAmount;
+            emit UnstakeProcessed(user, underlyingAmount, requestId);
+        } catch {
+            // Return funds to the vault on failure
+            underlyingToken.safeTransfer(vault, underlyingAmount);
+            emit UnstakeProcessingFailed(user, underlyingAmount, requestId);
+            // Reset approval
+            underlyingToken.safeApprove(address(silo), 0);
+            return false; // Explicitly return false on failure
+        }
 
-        _removeFromQueue(requestId);
-        queueLength--;
-        totalQueuedUnstakeAmount -= underlyingAmount;
-        emit UnstakeProcessed(user, underlyingAmount, requestId);
-
+        // Reset approval on success
+        underlyingToken.safeApprove(address(silo), 0);
         return true;
     }
 
