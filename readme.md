@@ -8,6 +8,7 @@ The protocol is designed to be modular, secure, and highly configurable through 
 ## Core Contracts
 * **LSTokenVault**: The central vault where users deposit underlying assets to mint LSTokens. It manages the core accounting, yield distribution, and custodian fund transfers.
 * **LSToken**: The ERC20 liquid staking token that represents a user's share in the vault. Its value appreciates as yield is added to the system.
+* **VaultManager**: A stateless administrative control module for a specific `LSTokenVault`. It serves as the single point of entry for admins to configure vault parameters.
 * **UnstakeManager**: Manages the entire withdrawal process, which includes a user-initiated request, a cooldown period, and the final claim for both regular and early withdrawals.
 * **TokenSilo**: A temporary holding contract where funds are placed during the unstaking cooldown period before they can be claimed by the user.
 * **EmergencyController**: A global, system-wide contract that provides powerful tools to pause activity and manage the protocol during emergencies.
@@ -44,15 +45,15 @@ The system's modular architecture separates key functionalities into distinct, u
 ### Operational Management (`MANAGER_ROLE`)
 * **Process Unstake Queue**: A manager calls `markRequestsForProcessing` and `processUnstakeQueue` on the `UnstakeManager` to move funds from the vault to the silo for users waiting to claim.
 * **Add Yield**: A manager (or designated `REWARDER_ROLE`) calls `addYield` on the `LSTokenVault` to distribute staking rewards to all LSToken holders. A protocol fee is taken from the yield.
-* **Withdraw Protocol Fees**: A manager calls `withdrawFees` on the `LSTokenVault` to transfer all accrued fees to the designated `feeReceiver` wallet.
+* **Withdraw Protocol Fees**: A manager calls `withdrawFees` on the `VaultManager` to transfer all accrued fees to the designated `feeReceiver` wallet.
 
-### Parameter Configuration (`ADMIN_ROLE`)
-* **Vault Parameters**: Admins can set all core financial parameters on the `LSTokenVault`, including `setMaxTotalDeposit`, `setMaxUserDeposit`, `setFeePercent`, and `setFloatPercent`.
-* **Unstake/Silo Parameters**: Admins control the `cooldownPeriod` on the `UnstakeManager` and all `TokenSilo` settings, such as the `unlockFee` for early withdrawals and the address of the `feeCollector`.
+### Parameter Configuration (`ADMIN_ROLE` via `VaultManager`)
+* **Vault Parameters**: Admins use the `VaultManager` to set all core financial parameters on the `LSTokenVault`, including `setMaxTotalDeposit`, `setMaxUserDeposit`, `setFeePercent`, and `setFloatPercent`.
+* **Unstake/Silo Parameters**: Admins use the `VaultManager` to control the `cooldownPeriod` on the `UnstakeManager` and all `TokenSilo` settings, such as the `unlockFee` for early withdrawals and the address of the `feeCollector`.
 
 ### Security & Risk Management (`ADMIN_ROLE` / `EMERGENCY_ROLE`)
 * **Vault-Specific Pause**: An `EMERGENCY_ROLE` can call `pause()` and `unpause()` on a specific `LSTokenVault` to handle isolated incidents without affecting the whole protocol.
-* **Flash Loan Protection**: Admins can configure the `maxTransactionPercentage` and `maxPriceImpactPercentage` on the `LSTokenVault` to protect against manipulation.
+* **Flash Loan Protection**: Admins can configure the `maxPriceImpactPercentage` on the `LSTokenVault` to protect against manipulation.
 * **Silo Security**: Admins can set the `LiquidityThreshold` on the `TokenSilo`, which automatically pauses withdrawals if liquidity is low.
 
 ### Emergency Management (`ADMIN_ROLE` / `EMERGENCY_ROLE`)
@@ -64,3 +65,4 @@ The system's modular architecture separates key functionalities into distinct, u
 ### Manual Overrides (`ADMIN_ROLE`)
 * **Rescue Tokens**: An admin can call `rescueTokens` on the `TokenSilo` to withdraw any accidentally sent tokens to a safe address.
 * **Adjust Claims**: If the silo's internal accounting ever becomes inaccurate, an admin can use `adjustPendingClaims` to manually correct the value of total pending withdrawals.
+* **Transfer Collateral**: Admins can use the `VaultManager` to call `transferCollateral`, allowing for the direct movement of underlying assets from the `LSTokenVault` for emergencies or operational needs.
