@@ -54,7 +54,6 @@ interface ITokenSilo {
     function adjustPendingClaims(uint256 newTotalPendingClaims) external;
     function setRateLimit(uint256 _maxDailyWithdrawalAmount) external;
     function resetDailyLimit() external;
-    function setFlashLoanProtection(uint256 _maxTransactionPercentage) external;
     function pause() external;
     function unpause() external;
     function rescueTokens(address token, address to, uint256 amount) external;
