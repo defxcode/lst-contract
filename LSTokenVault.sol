@@ -179,8 +179,11 @@ LSTokenVaultStorage
         uint256 current = getCurrentIndex();
         uint256 deltaIndex = calculatePercentage(distributableYield, INDEX_PRECISION, supply);
 
+        require(deltaIndex > 0, "Yield too low to register");
+
         uint256 maxIndexIncrease = calculatePercentage(current, MAX_INDEX_INCREASE_PERCENT, PERCENT_PRECISION);
         require(deltaIndex <= maxIndexIncrease, "Yield too high");
+
         uint256 newTarget = current + deltaIndex;
 
         uint256 indexChangePercent = calculatePercentage(deltaIndex, 100, current);
