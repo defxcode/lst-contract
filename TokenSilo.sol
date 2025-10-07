@@ -183,7 +183,7 @@ UUPSUpgradeable
 
         if (address(emergencyController) != address(0)) {
             require(
-                emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.DEPOSITS_PAUSED &&
+                emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.WITHDRAWALS_PAUSED &&
                 emergencyController.getEmergencyState() != IEmergencyController.EmergencyState.FULL_PAUSE,
                 "Silo: deposits paused"
             );
