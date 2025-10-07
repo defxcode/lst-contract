@@ -115,7 +115,6 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     uint256 public constant INDEX_PRECISION = 1e18; // The precision factor for the index (18 decimals).
     uint256 public constant INITIAL_INDEX = 1e18; // The index starts at 1.0.
     uint256 public constant YIELD_VESTING_DURATION = 8 hours; // Duration over which yield is vested.
-    uint256 public constant MIN_DEPOSIT_AMOUNT = 0.1 ether; // Minimum deposit size.
     uint256 public constant MAX_INDEX_INCREASE_PERCENT = 10; // Max percentage the index can increase from a single yield deposit.
     uint256 public constant MAX_FEE_PERCENT = 30; // Max protocol fee percentage.
     uint256 public constant PERCENT_PRECISION = 100; // The precision factor for percentages.
@@ -128,6 +127,7 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
     // --- Token Metadata ---
     string public underlyingSymbol;
     string public lsTokenSymbol;
+    uint256 public minDepositAmount; // Minimum deposit size.
 
     // --- Index Tracking ---
     uint256 public lastIndex; // The index value at the start of the current vesting period.
@@ -185,10 +185,14 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
      * @notice Sets the initial default values for the vault's configuration upon initialization.
      * @param admin The address to be set as the initial fee receiver.
      */
-    function _setupDefaults(address admin) internal {
+    function _setupDefaults(address admin, uint8 _underlyingDecimals) internal {
+        uint256 decimalsFactor = 10**_underlyingDecimals;
+
+        minDepositAmount = (1 * decimalsFactor) / 10; // This is 0.1 tokens
+
         feePercent = 10;
-        maxTotalDeposit = 1_000_000 ether;
-        maxUserDeposit = 10_000 ether;
+        maxTotalDeposit = 1_000_000 * decimalsFactor;
+        maxUserDeposit = 10_000 * decimalsFactor;
         floatPercent = 20;
         stakeEnabled = true;
         unstakeEnabled = true;
@@ -196,12 +200,12 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         feeReceiver = admin;
 
         depositLimit = DailyLimit({
-            maxAmount: 100_000 ether,
+            maxAmount: uint128(100_000 * decimalsFactor),
             currentAmount: 0
         });
 
         withdrawalLimit = DailyLimit({
-            maxAmount: 50_000 ether,
+            maxAmount: uint128(50_000 * decimalsFactor),
             currentAmount: 0
         });
 

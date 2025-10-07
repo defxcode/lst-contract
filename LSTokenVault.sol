@@ -91,7 +91,9 @@ LSTokenVaultStorage
         _grantRole(MANAGER_ROLE, _admin);
         _grantRole(EMERGENCY_ROLE, _admin);
 
-        _setupDefaults(_admin);
+        uint8 _underlyingDecimals = IERC20MetadataUpgradeable(_underlyingToken).decimals();
+
+        _setupDefaults(_admin, _underlyingDecimals);
         version = 1;
     }
 
@@ -229,7 +231,7 @@ LSTokenVaultStorage
         state != IEmergencyController.EmergencyState.FULL_PAUSE, "Deposits paused");
         require(!emergencyController.isRecoveryModeActive(), "Recovery mode active");
         require(stakeEnabled, "Staking disabled");
-        require(underlyingAmount >= MIN_DEPOSIT_AMOUNT, "Below minimum");
+        require(underlyingAmount >= minDepositAmount, "Below minimum");
         require(user != address(0), "Invalid user");
         require(totalDepositedAmount + underlyingAmount <= maxTotalDeposit, "Global limit reached");
 

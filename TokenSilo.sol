@@ -153,7 +153,8 @@ UUPSUpgradeable
         config.claimsPaused = false;
         config.liquidityThreshold = 8000; // 80%
 
-        withdrawalLimit.maxDailyAmount = 50_000 ether;
+        uint8 _underlyingDecimals = IERC20MetadataUpgradeable(_underlyingToken).decimals();
+        withdrawalLimit.maxDailyAmount = 50_000 * (10**_underlyingDecimals);
         withdrawalLimit.windowStartTime = block.timestamp;
 
         upgradeControl.version = 1;
