@@ -433,6 +433,17 @@ LSTokenVaultStorage
         emit FeesWithdrawn(feeReceiver, amountToWithdraw);
     }
 
+    /**
+    * @notice Allows an admin/manager to transfer underlying collateral out of the vault.
+     * @dev This is a privileged function for emergency or operational fund movements.
+     */
+    function transferUnderlying(address to, uint256 amount) external nonReentrant onlyRole(MANAGER_ROLE) {
+        require(to != address(0), "LSTokenVault: invalid recipient");
+        require(amount > 0, "LSTokenVault: amount must be > 0");
+        require(underlyingToken.balanceOf(address(this)) >= amount, "LSTokenVault: insufficient vault balance");
+
+        underlyingToken.safeTransfer(to, amount);
+    }
 
     // --- View Functions ---
 
