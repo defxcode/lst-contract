@@ -129,7 +129,8 @@ UUPSUpgradeable
     function initialize(
         address _underlyingToken,
         string memory _tokenSymbol,
-        address vault
+        address vault,
+        address _feeCollector
     ) public initializer {
         require(_underlyingToken != address(0), "Silo: invalid underlying token");
         require(vault != address(0), "Silo: invalid vault");
@@ -149,7 +150,8 @@ UUPSUpgradeable
 
         config.unlockFee = 50; // 0.5% in basis points
         config.earlyUnlockEnabled = false;
-        config.feeCollector = msg.sender;
+        require(_feeCollector != address(0), "Silo: invalid fee collector");
+        config.feeCollector = _feeCollector;
         config.claimsPaused = false;
         config.liquidityThreshold = 8000; // 80%
 

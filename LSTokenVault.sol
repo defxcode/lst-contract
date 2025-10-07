@@ -162,7 +162,7 @@ LSTokenVaultStorage
         require(supply > 0, "No LS token supply");
 
         uint256 feeAmount = calculatePercentage(yieldAmount, feePercent, PERCENT_PRECISION);
-        uint256 distributableYield = yieldAmount - feeAmount;
+        uint256 distributableYield = yieldAmount;
         // Add any previously forfeited yield to the distributable amount.
         if (unclaimedYield > 0) {
             distributableYield += unclaimedYield;
@@ -170,6 +170,7 @@ LSTokenVaultStorage
         }
         if (feeAmount > 0 && feeReceiver != address(0)) {
             totalFeeCollected += feeAmount;
+            distributableYield -= feeAmount;
             emit FeesCollected(feeAmount);
         }
 
