@@ -5,3 +5,5 @@
 *.patch
 
 .idea/
+
+.DS_Store
