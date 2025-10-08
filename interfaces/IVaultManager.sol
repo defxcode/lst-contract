@@ -35,6 +35,7 @@ interface IVaultManager {
     function setStakeEnabled(bool _enabled) external;
     function setUnstakeEnabled(bool _enabled) external;
     function setFloatPercent(uint256 _floatPercent) external;
+    function setMinDepositAmount(uint256 _minDepositAmount) external;
 
     // LSTokenVault Actions
     function withdrawFees() external;

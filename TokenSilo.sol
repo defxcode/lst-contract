@@ -531,5 +531,25 @@ UUPSUpgradeable
         emit UpgradeAuthorized(newImplementation, Strings.toString(oldVersion));
     }
 
+    function getUnlockFee() external view returns (uint256) {
+        return config.unlockFee;
+    }
+
+    function getEarlyUnlockEnabled() external view returns (bool) {
+        return config.earlyUnlockEnabled;
+    }
+
+    function getFeeCollector() external view returns (address) {
+        return config.feeCollector;
+    }
+
+    function getClaimsPaused() external view returns (bool) {
+        return config.claimsPaused;
+    }
+
+    function getLiquidityThreshold() external view returns (uint256) {
+        return config.liquidityThreshold;
+    }
+
     uint256[41] private __gap;
 }

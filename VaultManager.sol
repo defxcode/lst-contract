@@ -159,10 +159,14 @@ IVaultManager
         ILSTokenVault(vault).setFloatPercent(_floatPercent);
     }
 
-    // Added Function
     function setSiloRateLimit(uint256 _maxDailyWithdrawalAmount) external override onlyRole(ADMIN_ROLE) {
         require(address(tokenSilo) != address(0), "VaultManager: silo not set");
         tokenSilo.setRateLimit(_maxDailyWithdrawalAmount);
+    }
+
+    function setMinDepositAmount(uint256 _minDepositAmount) external override onlyRole(ADMIN_ROLE) {
+        require(vault != address(0), "VaultManager: vault not set");
+        ILSTokenVault(vault).setMinDepositAmount(_minDepositAmount);
     }
 
 

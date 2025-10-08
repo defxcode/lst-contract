@@ -365,5 +365,9 @@ abstract contract LSTokenVaultStorage is Initializable, PrecisionMath {
         unstakeEnabled = _enabled;
     }
 
+    function _setMinDepositAmount(uint256 _minDeposit) internal {
+        minDepositAmount = _minDeposit;
+    }
+
     uint256[35] private __gap;
 }

@@ -63,6 +63,7 @@ interface ILSTokenVault {
     function setStakeEnabled(bool enabled) external;
     function setUnstakeEnabled(bool enabled) external;
     function transferUnderlying(address to, uint256 amount) external;
+    function setMinDepositAmount(uint256 minDeposit) external;
 
     // --- View Functions ---
     function getCurrentIndex() external view returns (uint256);

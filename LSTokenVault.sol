@@ -25,12 +25,12 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 * @dev Inherits its state from LSTokenVaultStorage to separate logic and storage for upgradeability.
 */
 contract LSTokenVault is
-Initializable,
-AccessControlUpgradeable,
-PausableUpgradeable,
-ReentrancyGuardUpgradeable,
-UUPSUpgradeable,
-LSTokenVaultStorage
+    Initializable,
+    AccessControlUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable,
+    LSTokenVaultStorage
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     // --- State Variables (Interfaces) ---
@@ -445,6 +445,10 @@ LSTokenVaultStorage
 
     // --- View Functions ---
 
+    function getMinDepositAmount() external view returns (uint256) {
+        return minDepositAmount;
+    }
+
     function previewDeposit(uint256 underlyingAmount) external view returns (uint256 lsTokenAmount) {
         uint256 currentIndex = getCurrentIndex();
         return convertTokens(underlyingAmount, currentIndex, INDEX_PRECISION, true);
@@ -481,6 +485,14 @@ LSTokenVaultStorage
      */
     function setMaxTotalDeposit(uint256 _maxTotal) external onlyRole(MANAGER_ROLE) {
         _setMaxTotalDeposit(_maxTotal);
+    }
+
+    /**
+     * @notice Sets the minimum deposit amount for the vault.
+     * @dev Can only be called by the VaultManager.
+    */
+    function setMinDepositAmount(uint256 _minDeposit) external onlyRole(MANAGER_ROLE) {
+        _setMinDepositAmount(_minDeposit);
     }
 
     /**
