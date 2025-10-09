@@ -100,7 +100,6 @@ describe("UnstakeManager", function () {
             await underlyingToken.mint(await vault.getAddress(), ethers.parseEther("2000"));
             await vault.approveUnstakeManager(ethers.parseEther("2000"));
 
-            // **FIX**: Advance time to pass the withdrawal lock
             const YIELD_VESTING_DURATION = await vault.YIELD_VESTING_DURATION();
             await time.increase(Number(YIELD_VESTING_DURATION) + 1);
         });

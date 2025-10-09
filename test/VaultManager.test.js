@@ -129,7 +129,6 @@ describe("VaultManager", function () {
             const newRateLimit = ethers.parseEther("100000");
             await vaultManager.connect(admin).setSiloRateLimit(newRateLimit);
 
-            // **FIX**: Destructure the array-like return value from the struct getter
             const [maxDailyAmount] = await mockSilo.withdrawalLimit();
             expect(maxDailyAmount).to.equal(newRateLimit);
         });
