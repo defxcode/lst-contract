@@ -177,6 +177,41 @@ describe("UnstakeManager", function () {
             expect(status).to.equal(0);
         });
 
+        it("should prevent a manager from canceling an unstake while yield is vesting", async function () {
+            // Setup: User 1 and User 2 deposit. This ensures supply never drops to zero.
+            await underlyingToken.mint(user1.address, ethers.parseEther("1000"));
+            await underlyingToken.connect(user1).approve(await vault.getAddress(), ethers.parseEther("1000"));
+            await vault.connect(user1).deposit(ethers.parseEther("1000"));
+
+            await underlyingToken.mint(user2.address, ethers.parseEther("1000"));
+            await underlyingToken.connect(user2).approve(await vault.getAddress(), ethers.parseEther("1000"));
+            await vault.connect(user2).deposit(ethers.parseEther("1000"));
+
+            const YIELD_VESTING_DURATION = await vault.YIELD_VESTING_DURATION();
+            await time.increase(Number(YIELD_VESTING_DURATION) + 1); // Expire user1's withdrawal lock
+
+            // User 1 requests to unstake their full amount
+            await lsToken.connect(user1).approve(await unstakeManager.getAddress(), ethers.MaxUint256);
+            await vault.connect(user1)["requestUnstake(uint256)"](ethers.parseEther("1000"));
+
+            // Action: Add yield to start a vesting period. This will now succeed because user2's tokens are still staked.
+            await vault.grantRole(await vault.REWARDER_ROLE(), owner.address);
+            await underlyingToken.mint(owner.address, ethers.parseEther("100"));
+            await underlyingToken.connect(owner).approve(await vault.getAddress(), ethers.parseEther("100"));
+            await vault.addYield(ethers.parseEther("100"));
+
+            // Verification: Attempt to cancel during the vesting period
+            await expect(
+                unstakeManager.connect(manager).cancelUnstake(user1.address)
+            ).to.be.revertedWith("UnstakeManager: cannot cancel during vesting");
+
+            // Verification: Cancellation should succeed after the vesting period ends
+            await time.increase(Number(YIELD_VESTING_DURATION) + 1);
+            await expect(
+                unstakeManager.connect(manager).cancelUnstake(user1.address)
+            ).to.not.be.reverted;
+        });
+
         it("should allow an admin to set the cooldown period", async function () {
             const newPeriod = 10 * 24 * 60 * 60;
             await unstakeManager.connect(owner).setCooldownPeriod(newPeriod);
