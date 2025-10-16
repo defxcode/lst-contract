@@ -216,15 +216,6 @@ contract LSTokenVault is
     }
 
     /**
-     * @notice Allows a `MANAGER_ROLE` to deposit on behalf of another user.
-     * @param user The address that will receive the minted LSTokens.
-     * @param underlyingAmount The amount of the underlying token to stake.
-     */
-    function depositFor(address user, uint256 underlyingAmount) external whenNotPaused nonReentrant onlyRole(MANAGER_ROLE){
-        _deposit(user, underlyingAmount, 0);
-    }
-
-    /**
      * @notice Internal logic for handling all deposits.
      * @dev Performs all security checks, calculates the LSToken amount, mints tokens, and triggers custodian transfers.
      */

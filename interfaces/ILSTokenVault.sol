@@ -39,7 +39,6 @@ interface ILSTokenVault {
     function requestUnstake(uint256 lsTokenAmount, uint256 minUnderlyingAmount) external;
 
     // --- Manager & Rewarder Functions ---
-    function depositFor(address user, uint256 underlyingAmount) external;
     function addYield(uint256 yieldAmount) external;
     function withdrawFees() external;
 
