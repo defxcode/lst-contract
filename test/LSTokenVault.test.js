@@ -179,22 +179,26 @@ describe("LSTokenVault", function () {
         });
 
         it("should redirect forfeited yield from an early unstake directly to protocol fees", async function () {
-            // 1. Add yield to start a vesting period
+            const VESTING_DURATION = await vault.YIELD_VESTING_DURATION();
+
+            // 1. Advance time to expire the user's withdrawal lock period.
+            await time.increase(Number(VESTING_DURATION) + 1);
+
+            // 2. Add yield to start a NEW vesting period
             await vault.addYield(ethers.parseEther("100")); // 10% fee means 90 goes to yield
 
             // After this, targetIndex will be 1 + (90 / 1000) = 1.09
             const targetIndex = await vault.targetIndex();
             expect(targetIndex).to.equal(ethers.parseEther("1.09"));
 
-            // 2. Increase time by half the vesting duration
-            const VESTING_DURATION = await vault.YIELD_VESTING_DURATION();
+            // 3. Increase time by half of vesting duration to create the "early unstake" scenario
             await time.increase(Number(VESTING_DURATION) / 2);
 
             // Current index should be halfway, around 1.045
             const currentIndex = await vault.getCurrentIndex();
             expect(currentIndex).to.be.closeTo(ethers.parseEther("1.045"), ethers.parseEther("0.0001"));
 
-            // 3. User 1 requests to unstake their full amount during the vesting period
+            // 4. User 1 requests to unstake their full amount during the vesting period
             await lsToken.connect(user1).approve(await unstakeManager.getAddress(), ethers.parseEther("1000"));
 
             const initialFees = await vault.totalFeeCollected(); // Should be 10 ether from the yield fee
@@ -203,7 +207,7 @@ describe("LSTokenVault", function () {
             await expect(vault.connect(user1)["requestUnstake(uint256)"](ethers.parseEther("1000")))
                 .to.emit(vault, "FeesCollected");
 
-            // 4. Calculate forfeited amount and check if it was added to fees
+            // 5. Calculate forfeited amount and check if it was added to fees
             // Value at target index = 1000 * 1.09 = 1090
             const targetValue = ethers.parseEther("1090");
             // Value at current index = 1000 * ~1.045 = ~1045
@@ -214,7 +218,7 @@ describe("LSTokenVault", function () {
             // Final fees = initial 10 ether fee + forfeited amount
             expect(finalFees).to.be.closeTo(initialFees + forfeitedAmount, ethers.parseEther("0.0001"));
 
-            // 5. Ensure the forfeited amount is not redistributed in the next yield cycle
+            // 6. Ensure the forfeited amount is not redistributed in the next yield cycle
             // Wait for the initial vesting to finish
             await time.increase(Number(VESTING_DURATION));
 
