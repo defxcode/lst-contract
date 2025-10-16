@@ -165,6 +165,81 @@ describe("LSTokenVault", function () {
         });
     });
 
+    describe("Forfeited Yield (Early Unstake)", function () {
+        beforeEach(async function() {
+            // User 1 deposits 1000 underlying tokens
+            await vault.connect(user1).deposit(ethers.parseEther("1000"));
+
+            // Grant REWARDER_ROLE and mint yield tokens for the owner
+            await vault.grantRole(REWARDER_ROLE, owner.address);
+            await underlyingToken.mint(owner.address, ethers.parseEther("200"));
+            await underlyingToken.connect(owner).approve(await vault.getAddress(), ethers.parseEther("200"));
+            await vault.setFlashLoanProtection(1000); // 10%
+            await vault.setFeePercent(10); // 10% fee
+        });
+
+        it("should redirect forfeited yield from an early unstake directly to protocol fees", async function () {
+            // 1. Add yield to start a vesting period
+            await vault.addYield(ethers.parseEther("100")); // 10% fee means 90 goes to yield
+
+            // After this, targetIndex will be 1 + (90 / 1000) = 1.09
+            const targetIndex = await vault.targetIndex();
+            expect(targetIndex).to.equal(ethers.parseEther("1.09"));
+
+            // 2. Increase time by half the vesting duration
+            const VESTING_DURATION = await vault.YIELD_VESTING_DURATION();
+            await time.increase(Number(VESTING_DURATION) / 2);
+
+            // Current index should be halfway, around 1.045
+            const currentIndex = await vault.getCurrentIndex();
+            expect(currentIndex).to.be.closeTo(ethers.parseEther("1.045"), ethers.parseEther("0.0001"));
+
+            // 3. User 1 requests to unstake their full amount during the vesting period
+            await lsToken.connect(user1).approve(await unstakeManager.getAddress(), ethers.parseEther("1000"));
+
+            const initialFees = await vault.totalFeeCollected(); // Should be 10 ether from the yield fee
+            expect(initialFees).to.equal(ethers.parseEther("10"));
+
+            await expect(vault.connect(user1)["requestUnstake(uint256)"](ethers.parseEther("1000")))
+                .to.emit(vault, "FeesCollected");
+
+            // 4. Calculate forfeited amount and check if it was added to fees
+            // Value at target index = 1000 * 1.09 = 1090
+            const targetValue = ethers.parseEther("1090");
+            // Value at current index = 1000 * ~1.045 = ~1045
+            const currentValue = await vault.previewRedeem(ethers.parseEther("1000"));
+            const forfeitedAmount = targetValue - currentValue;
+            const finalFees = await vault.totalFeeCollected();
+
+            // Final fees = initial 10 ether fee + forfeited amount
+            expect(finalFees).to.be.closeTo(initialFees + forfeitedAmount, ethers.parseEther("0.0001"));
+
+            // 5. Ensure the forfeited amount is not redistributed in the next yield cycle
+            // Wait for the initial vesting to finish
+            await time.increase(Number(VESTING_DURATION));
+
+            // User2 deposits to provide supply for the next yield addition
+            await underlyingToken.mint(user2.address, ethers.parseEther("1000"));
+            await underlyingToken.connect(user2).approve(await vault.getAddress(), ethers.parseEther("1000"));
+            await vault.connect(user2).deposit(ethers.parseEther("1000"));
+
+            const oldTargetIndex = await vault.targetIndex();
+
+            // Add another 100 yield
+            await vault.addYield(ethers.parseEther("100"));
+
+            const newTargetIndex = await vault.targetIndex();
+            const newTotalSupply = await lsToken.totalSupply(); // approx 1000 lsTokens for user2
+            const yieldAdded = ethers.parseEther("90"); // 100 yield - 10% fee
+
+            // The change in index should only reflect the new yield, not the old forfeited amount.
+            // deltaIndex = (yieldAdded * 1e18) / newTotalSupply
+            const deltaIndex = (yieldAdded * ethers.parseEther("1")) / newTotalSupply;
+
+            expect(newTargetIndex).to.be.closeTo(oldTargetIndex + deltaIndex, ethers.parseEther("0.0001"));
+        });
+    });
+
     describe("Custodian Management", function () {
         it("should allow an admin to add, update, and remove custodians", async function () {
             await vault.addCustodian(custodian1.address, 40);
