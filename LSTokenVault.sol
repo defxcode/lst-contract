@@ -434,6 +434,10 @@ contract LSTokenVault is
 
     // --- View Functions ---
 
+    function isVestingActive() external view returns (bool) {
+        return block.timestamp < vestingEndTime && vestingEndTime != 0;
+    }
+
     function getMinDepositAmount() external view returns (uint256) {
         return minDepositAmount;
     }

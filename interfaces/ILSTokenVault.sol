@@ -65,6 +65,7 @@ interface ILSTokenVault {
     function setMinDepositAmount(uint256 minDeposit) external;
 
     // --- View Functions ---
+    function isVestingActive() external view returns (bool);
     function getCurrentIndex() external view returns (uint256);
     function targetIndex() external view returns (uint256);
     function getStats() external view returns (uint256 currentIndex, uint256 totalDeposited, uint256 totalSupply);

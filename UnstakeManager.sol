@@ -531,6 +531,7 @@ IUnstakeManager
     function cancelUnstake(address user)
     external override onlyRole(MANAGER_ROLE) nonReentrant returns (bool success)
     {
+        require(!ILSTokenVault(vault).isVestingActive(), "UnstakeManager: cannot cancel during vesting");
         UnstakeRequest storage request = unstakeRequests[user];
         require(request.lsTokenAmount > 0, "UnstakeManager: no pending unstake");
         require(user != address(0), "UnstakeManager: invalid user address");
